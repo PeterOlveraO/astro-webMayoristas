@@ -1,190 +1,319 @@
 ---
 import DashboardLayout from '../../layouts/DashboardLayout.astro';
-import { pedidos } from '../../data/pedidos';
+import { supabase } from '../../db/supabase';
 
-const pendientes = pedidos.filter(p => p.estado === 'pendiente').length;
-const confirmados = pedidos.filter(p => p.estado === 'confirmado' || p.estado === 'enviado').length;
-const porEnviar = pedidos.filter(p => p.estado === 'confirmado').length;
+// Auth guard
+const proveedorId = Astro.cookies.get('proveedor_id')?.value;
+if (!proveedorId) {
+  return Astro.redirect('/');
+}
 
-const recientes = pedidos.slice(0, 3);
+// Fetch proveedor info
+const { data: proveedor } = await supabase
+  .from('mayoristas')
+  .select('*')
+  .eq('id_mayorista', proveedorId)
+  .single();
 
-const estadoBadge: Record<string, { bg: string; text: string; label: string }> = {
-  pendiente:  { bg: 'bg-secondary-container', text: 'text-on-secondary-container', label: 'Pendiente' },
-  confirmado: { bg: 'bg-primary-fixed',        text: 'text-primary',                label: 'Confirmado' },
-  rechazado:  { bg: 'bg-error-container',      text: 'text-on-error-container',     label: 'Rechazado'  },
-  enviado:    { bg: 'bg-secondary-container',  text: 'text-secondary',              label: 'Enviado'    },
+if (!proveedor) {
+  return Astro.redirect('/');
+}
+
+// Count products in catalog
+const { count: totalProductos } = await supabase
+  .from('catalogo_productos')
+  .select('*', { count: 'exact', head: true })
+  .eq('id_mayorista', proveedorId);
+
+// Count pending quotations (sent to this supplier)
+const { data: myProducts } = await supabase
+  .from('catalogo_productos')
+  .select('id_producto')
+  .eq('id_mayorista', proveedorId);
+
+const productIds = myProducts?.map((p: any) => p.id_producto) || [];
+
+let cotPendientes = 0;
+let cotRespondidas = 0;
+let recentCotizaciones: any[] = [];
+
+if (productIds.length > 0) {
+  const { count: pendCount } = await supabase
+    .from('cotizaciones_downlabs')
+    .select('*', { count: 'exact', head: true })
+    .in('id_producto', productIds)
+    .eq('estado', 'enviada');
+  cotPendientes = pendCount || 0;
+
+  const { count: respCount } = await supabase
+    .from('cotizaciones_downlabs')
+    .select('*', { count: 'exact', head: true })
+    .in('id_producto', productIds)
+    .in('estado', ['aceptada', 'rechazada']);
+  cotRespondidas = respCount || 0;
+
+  // Recent quotations
+  const { data: recientes } = await supabase
+    .from('cotizaciones_downlabs')
+    .select(`
+      *,
+      catalogo_productos (nombre_articulo, categoria, precio_mayorista, imagen_url),
+      solicitudes_cotizacion (descripcion_articulo, nivel_urgencia, clientes (nombre_empresa))
+    `)
+    .in('id_producto', productIds)
+    .order('created_at', { ascending: false })
+    .limit(5);
+  recentCotizaciones = recientes || [];
+}
+
+// Average product rating
+const { data: ratings } = await supabase
+  .from('ratings_productos')
+  .select('calificacion, catalogo_productos!inner(id_mayorista)')
+  .eq('catalogo_productos.id_mayorista', proveedorId);
+
+const avgRating = ratings && ratings.length > 0
+  ? (ratings.reduce((s: number, r: any) => s + r.calificacion, 0) / ratings.length).toFixed(1)
+  : '—';
+const totalRatings = ratings?.length || 0;
+
+const initials = proveedor.nombre_empresa
+  .split(' ')
+  .map((w: string) => w[0])
+  .join('')
+  .slice(0, 2)
+  .toUpperCase();
+
+const estadoBadge: Record<string, { classes: string; label: string }> = {
+  pendiente: { classes: 'bg-tertiary/10 text-tertiary border-tertiary/20', label: 'Pendiente' },
+  enviada:   { classes: 'bg-primary/10 text-primary border-primary/20', label: 'Pendiente' },
+  aceptada:  { classes: 'bg-success/10 text-success border-success/20', label: 'Aceptada'  },
+  rechazada: { classes: 'bg-error/10 text-error border-error/20', label: 'Rechazada' },
+};
+
+const urgencyBadge: Record<string, { classes: string; icon: string }> = {
+  baja:  { classes: 'text-on-surface-variant', icon: 'arrow_downward' },
+  media: { classes: 'text-tertiary', icon: 'remove' },
+  alta:  { classes: 'text-error', icon: 'arrow_upward' },
 };
 ---
 
 <DashboardLayout title="Dashboard" activeNav="dashboard">
   <!-- Header -->
   <header class="mb-10">
-    <h1 class="font-headline text-4xl md:text-5xl font-extrabold text-on-surface tracking-tighter mb-2">
-      Dashboard Mayorista
-    </h1>
-    <p class="text-on-surface-variant font-body">Bienvenido al centro de operaciones de Coperativa.</p>
+    <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+      <div>
+        <p class="text-sm font-semibold text-primary uppercase tracking-widest mb-2 animate-slide-up">Panel de Proveedor</p>
+        <h1 class="font-headline text-3xl md:text-4xl font-extrabold text-on-surface tracking-tight animate-slide-up stagger-1" style="opacity:0;">
+          Hola, {proveedor.nombre_empresa.split(' ')[0]} 👋
+        </h1>
+        <p class="text-on-surface-variant font-body mt-1 animate-slide-up stagger-2" style="opacity:0;">
+          Aquí tienes un resumen de la actividad de tu negocio.
+        </p>
+      </div>
+      <div class="flex items-center gap-2 animate-slide-up stagger-2" style="opacity:0;">
+        <span class="material-symbols-outlined text-on-surface-variant text-base">calendar_today</span>
+        <span class="text-sm text-on-surface-variant">{new Date().toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' })}</span>
+      </div>
+    </div>
   </header>
 
   <!-- Metric Cards -->
-  <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-    <!-- Nuevas Solicitudes -->
-    <div class="bg-surface-container-lowest p-8 rounded-xl relative overflow-hidden group">
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-10">
+    <!-- Products in Catalog -->
+    <div class="glass-card rounded-2xl p-6 relative overflow-hidden group hover-glow transition-smooth animate-slide-up stagger-1" style="opacity:0;">
       <div class="relative z-10">
-        <p class="text-sm font-label font-semibold text-secondary uppercase tracking-widest mb-1">Nuevas Solicitudes</p>
-        <h2 class="font-headline text-5xl font-bold text-on-surface mb-4">{String(pendientes).padStart(2, '0')}</h2>
-        <div class="flex items-center gap-2 text-secondary text-sm font-medium">
-          <span class="material-symbols-outlined text-sm">trending_up</span>
-          <span>+12% vs ayer</span>
+        <div class="flex items-center justify-between mb-4">
+          <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+            <span class="material-symbols-outlined text-primary text-xl">inventory_2</span>
+          </div>
         </div>
+        <h2 class="font-headline text-4xl font-bold text-on-surface mb-1">{totalProductos || 0}</h2>
+        <p class="text-xs font-semibold text-on-surface-variant uppercase tracking-widest">Productos en Catálogo</p>
       </div>
-      <div class="absolute -right-4 -bottom-4 opacity-5 group-hover:opacity-10 transition-opacity">
-        <span class="material-symbols-outlined text-9xl">pending_actions</span>
+      <div class="absolute -right-6 -bottom-6 opacity-5 group-hover:opacity-10 transition-smooth">
+        <span class="material-symbols-outlined" style="font-size: 100px;">inventory_2</span>
       </div>
     </div>
 
-    <!-- Pedidos Confirmados -->
-    <div class="bg-surface-container-low p-8 rounded-xl relative overflow-hidden group">
+    <!-- Pending Quotations -->
+    <div class="glass-card rounded-2xl p-6 relative overflow-hidden group hover-glow transition-smooth animate-slide-up stagger-2" style="opacity:0;">
       <div class="relative z-10">
-        <p class="text-sm font-label font-semibold text-primary uppercase tracking-widest mb-1">Pedidos Confirmados</p>
-        <h2 class="font-headline text-5xl font-bold text-on-surface mb-4">{confirmados}</h2>
-        <div class="flex items-center gap-2 text-primary text-sm font-medium">
-          <span class="material-symbols-outlined text-sm">check_circle</span>
-          <span>89% completado</span>
+        <div class="flex items-center justify-between mb-4">
+          <div class="w-10 h-10 rounded-xl bg-tertiary/10 flex items-center justify-center">
+            <span class="material-symbols-outlined text-tertiary text-xl">pending_actions</span>
+          </div>
+          {cotPendientes > 0 && (
+            <span class="px-2 py-0.5 rounded-full bg-tertiary/10 text-tertiary text-xs font-bold border border-tertiary/20 animate-pulse-dot">
+              Requiere atención
+            </span>
+          )}
         </div>
+        <h2 class="font-headline text-4xl font-bold text-on-surface mb-1">{String(cotPendientes).padStart(2, '0')}</h2>
+        <p class="text-xs font-semibold text-on-surface-variant uppercase tracking-widest">Cotizaciones Pendientes</p>
       </div>
-      <div class="absolute -right-4 -bottom-4 opacity-5 group-hover:opacity-10 transition-opacity text-primary">
-        <span class="material-symbols-outlined text-9xl">task_alt</span>
+      <div class="absolute -right-6 -bottom-6 opacity-5 group-hover:opacity-10 transition-smooth">
+        <span class="material-symbols-outlined" style="font-size: 100px;">pending_actions</span>
       </div>
     </div>
 
-    <!-- Pendientes de Envío -->
-    <div class="bg-surface-container-high p-8 rounded-xl relative overflow-hidden group">
+    <!-- Responded -->
+    <div class="glass-card rounded-2xl p-6 relative overflow-hidden group hover-glow transition-smooth animate-slide-up stagger-3" style="opacity:0;">
       <div class="relative z-10">
-        <p class="text-sm font-label font-semibold text-tertiary uppercase tracking-widest mb-1">Pendientes de Envío</p>
-        <h2 class="font-headline text-5xl font-bold text-on-surface mb-4">{String(porEnviar).padStart(2, '0')}</h2>
-        <div class="flex items-center gap-2 text-tertiary text-sm font-medium">
-          <span class="material-symbols-outlined text-sm">schedule</span>
-          <span>Prioridad alta</span>
+        <div class="flex items-center justify-between mb-4">
+          <div class="w-10 h-10 rounded-xl bg-success/10 flex items-center justify-center">
+            <span class="material-symbols-outlined text-success text-xl">task_alt</span>
+          </div>
         </div>
+        <h2 class="font-headline text-4xl font-bold text-on-surface mb-1">{cotRespondidas}</h2>
+        <p class="text-xs font-semibold text-on-surface-variant uppercase tracking-widest">Cotizaciones Respondidas</p>
       </div>
-      <div class="absolute -right-4 -bottom-4 opacity-5 group-hover:opacity-10 transition-opacity text-tertiary">
-        <span class="material-symbols-outlined text-9xl">local_shipping</span>
+      <div class="absolute -right-6 -bottom-6 opacity-5 group-hover:opacity-10 transition-smooth">
+        <span class="material-symbols-outlined" style="font-size: 100px;">task_alt</span>
+      </div>
+    </div>
+
+    <!-- Rating -->
+    <div class="glass-card rounded-2xl p-6 relative overflow-hidden group hover-glow transition-smooth animate-slide-up stagger-4" style="opacity:0;">
+      <div class="relative z-10">
+        <div class="flex items-center justify-between mb-4">
+          <div class="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center">
+            <span class="material-symbols-outlined text-accent text-xl">star</span>
+          </div>
+        </div>
+        <h2 class="font-headline text-4xl font-bold text-on-surface mb-1">{avgRating}</h2>
+        <p class="text-xs font-semibold text-on-surface-variant uppercase tracking-widest">{totalRatings} Reseñas</p>
+      </div>
+      <div class="absolute -right-6 -bottom-6 opacity-5 group-hover:opacity-10 transition-smooth">
+        <span class="material-symbols-outlined" style="font-size: 100px;">star</span>
       </div>
     </div>
   </div>
 
   <!-- Main Grid -->
-  <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
-    <!-- Recent Order Requests -->
-    <div class="lg:col-span-8">
+  <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+    <!-- Recent Quotations -->
+    <div class="lg:col-span-8 animate-slide-up stagger-4" style="opacity:0;">
       <div class="flex justify-between items-end mb-6">
-        <h3 class="font-headline text-2xl font-bold text-on-surface">Solicitudes Recientes</h3>
-        <a href="/dashboard/pedidos" class="text-primary font-semibold text-sm hover:underline">Ver todo</a>
+        <h3 class="font-headline text-xl font-bold text-on-surface">Actividad Reciente</h3>
+        <a href="/dashboard/cotizaciones" class="text-primary font-semibold text-sm hover:underline flex items-center gap-1">
+          Ver todas
+          <span class="material-symbols-outlined text-sm">arrow_forward</span>
+        </a>
       </div>
-      <div class="space-y-4">
-        {recientes.map((pedido) => {
-          const badge = estadoBadge[pedido.estado];
-          return (
-            <a
-              href={`/dashboard/pedidos/${pedido.id}`}
-              class="bg-surface-container-lowest p-6 rounded-xl flex items-center justify-between group hover:shadow-lg transition-all duration-300"
-            >
-              <div class="flex items-center gap-6">
-                <div class="w-14 h-14 bg-surface-container-low rounded-xl flex items-center justify-center group-hover:bg-primary-container group-hover:text-on-primary-container transition-colors">
-                  <span class="material-symbols-outlined">shopping_cart</span>
+
+      {recentCotizaciones.length === 0 ? (
+        <div class="glass-card rounded-2xl p-12 text-center">
+          <span class="material-symbols-outlined text-5xl text-on-surface-variant mb-4">inbox</span>
+          <p class="text-on-surface-variant font-medium">No hay cotizaciones recientes</p>
+          <p class="text-sm text-on-surface-variant mt-1">Cuando los operadores seleccionen tus productos, las cotizaciones aparecerán aquí.</p>
+        </div>
+      ) : (
+        <div class="space-y-3">
+          {recentCotizaciones.map((cot: any, i: number) => {
+            const badge = estadoBadge[cot.estado] || estadoBadge.pendiente;
+            const prod = cot.catalogo_productos;
+            const sol = cot.solicitudes_cotizacion;
+            const urgency = sol ? urgencyBadge[sol.nivel_urgencia] || urgencyBadge.media : urgencyBadge.media;
+            return (
+              <a
+                href="/dashboard/cotizaciones"
+                class="glass-card rounded-xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 group hover-glow transition-smooth"
+              >
+                <div class="flex items-center gap-4">
+                  <div class="w-12 h-12 rounded-xl bg-surface-container-high flex items-center justify-center shrink-0 overflow-hidden">
+                    {prod?.imagen_url ? (
+                      <img src={prod.imagen_url} alt="" class="w-full h-full object-cover" />
+                    ) : (
+                      <span class="material-symbols-outlined text-on-surface-variant">shopping_bag</span>
+                    )}
+                  </div>
+                  <div class="min-w-0">
+                    <h4 class="font-semibold text-on-surface text-sm truncate">{prod?.nombre_articulo || 'Producto'}</h4>
+                    <p class="text-xs text-on-surface-variant mt-0.5">
+                      {sol?.clientes?.nombre_empresa || 'Cliente'} · {cot.cantidad} uds
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h4 class="font-bold text-on-surface text-lg">{pedido.numero}</h4>
-                  <p class="text-on-surface-variant text-sm">
-                    {pedido.empresa} · {pedido.productos.reduce((s, p) => s + p.cantidad, 0)} unidades · ${pedido.total.toLocaleString('es-MX', {minimumFractionDigits: 2})}
-                  </p>
+                <div class="flex items-center gap-3 sm:text-right">
+                  <div class="flex items-center gap-1" title={`Urgencia ${sol?.nivel_urgencia || 'media'}`}>
+                    <span class={`material-symbols-outlined text-sm ${urgency.classes}`}>{urgency.icon}</span>
+                  </div>
+                  <span class={`inline-flex px-2.5 py-1 rounded-lg text-xs font-semibold border ${badge.classes}`}>
+                    {badge.label}
+                  </span>
+                  <span class="text-xs text-on-surface-variant hidden sm:block">
+                    {new Date(cot.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short' })}
+                  </span>
                 </div>
-              </div>
-              <div class="text-right">
-                <span class={`block text-xs font-semibold uppercase tracking-widest mb-2 px-3 py-1 rounded-full ${badge.bg} ${badge.text}`}>
-                  {badge.label}
-                </span>
-                <span class="text-on-surface-variant text-xs font-medium">{pedido.fecha}</span>
-              </div>
-            </a>
-          );
-        })}
-      </div>
+              </a>
+            );
+          })}
+        </div>
+      )}
     </div>
 
-    <!-- Action Panel -->
-    <div class="lg:col-span-4">
-      <div class="bg-primary text-white p-8 rounded-xl h-full flex flex-col justify-between relative overflow-hidden">
+    <!-- Quick Actions Panel -->
+    <div class="lg:col-span-4 animate-slide-up stagger-5" style="opacity:0;">
+      <div class="glass-card rounded-2xl p-6 relative overflow-hidden">
+        <div class="absolute -right-20 -top-20 w-40 h-40 bg-primary/5 rounded-full blur-[60px]"></div>
         <div class="relative z-10">
-          <h3 class="font-headline text-3xl font-bold mb-4 leading-tight">Gestiona tus Pedidos</h3>
-          <p class="text-on-primary-container font-body text-sm mb-8 opacity-90">
-            Revisa, confirma o rechaza las solicitudes de pedido de tus operadores de manera rápida.
-          </p>
-          <div class="space-y-6">
-            <div class="flex gap-4">
-              <div class="bg-white/10 p-2 rounded-lg h-fit">
-                <span class="material-symbols-outlined">check_circle</span>
+          <h3 class="font-headline text-lg font-bold text-on-surface mb-6">Acciones Rápidas</h3>
+
+          <div class="space-y-3">
+            <a href="/dashboard/catalogo" class="flex items-center gap-3 p-3 rounded-xl bg-surface-container hover:bg-surface-container-high transition-smooth group">
+              <div class="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-smooth">
+                <span class="material-symbols-outlined text-primary text-lg">add_circle</span>
               </div>
               <div>
-                <p class="text-xs font-label uppercase tracking-widest opacity-70">Confirmados hoy</p>
-                <p class="text-sm font-semibold">{confirmados} pedidos</p>
+                <p class="text-sm font-semibold text-on-surface">Agregar Producto</p>
+                <p class="text-xs text-on-surface-variant">Sube un nuevo artículo al catálogo</p>
               </div>
-            </div>
-            <div class="flex gap-4">
-              <div class="bg-white/10 p-2 rounded-lg h-fit">
-                <span class="material-symbols-outlined">local_shipping</span>
+            </a>
+
+            <a href="/dashboard/cotizaciones" class="flex items-center gap-3 p-3 rounded-xl bg-surface-container hover:bg-surface-container-high transition-smooth group">
+              <div class="w-10 h-10 rounded-lg bg-tertiary/10 flex items-center justify-center group-hover:bg-tertiary/20 transition-smooth">
+                <span class="material-symbols-outlined text-tertiary text-lg">request_quote</span>
               </div>
               <div>
-                <p class="text-xs font-label uppercase tracking-widest opacity-70">Por despachar</p>
-                <p class="text-sm font-semibold">{porEnviar} pendientes</p>
+                <p class="text-sm font-semibold text-on-surface">Revisar Cotizaciones</p>
+                <p class="text-xs text-on-surface-variant">
+                  {cotPendientes > 0 ? `${cotPendientes} pendientes por responder` : 'No hay pendientes'}
+                </p>
               </div>
-            </div>
+            </a>
+
+            <a href="/dashboard/historial" class="flex items-center gap-3 p-3 rounded-xl bg-surface-container hover:bg-surface-container-high transition-smooth group">
+              <div class="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center group-hover:bg-accent/20 transition-smooth">
+                <span class="material-symbols-outlined text-accent text-lg">analytics</span>
+              </div>
+              <div>
+                <p class="text-sm font-semibold text-on-surface">Ver Estadísticas</p>
+                <p class="text-xs text-on-surface-variant">Analiza tu rendimiento</p>
+              </div>
+            </a>
           </div>
         </div>
-        <a
-          href="/dashboard/pedidos"
-          class="relative z-10 mt-12 bg-surface-container-lowest text-primary py-4 px-6 rounded-xl font-bold hover:scale-[1.02] transition-transform flex justify-center items-center gap-2 group"
-        >
-          Ver Solicitudes
-          <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">arrow_forward</span>
-        </a>
-        <div class="absolute -right-20 -top-20 w-64 h-64 bg-primary-container rounded-full blur-[80px] opacity-30"></div>
+      </div>
+
+      <!-- Trust Level Card -->
+      <div class="glass-card rounded-2xl p-6 mt-4">
+        <div class="flex items-center justify-between mb-4">
+          <h4 class="font-headline text-sm font-bold text-on-surface">Nivel de Confianza</h4>
+          <span class="material-symbols-outlined text-secondary text-lg">verified</span>
+        </div>
+        <div class="flex items-center gap-1 mb-3">
+          {[1, 2, 3, 4, 5].map((star) => (
+            <span class={`material-symbols-outlined text-lg ${star <= (proveedor.nivel_confianza || 0) ? 'text-tertiary' : 'text-outline'}`} style={star <= (proveedor.nivel_confianza || 0) ? "font-variation-settings: 'FILL' 1;" : ""}>
+              star
+            </span>
+          ))}
+          <span class="text-sm text-on-surface-variant ml-2">{proveedor.nivel_confianza || 0}/5</span>
+        </div>
+        <p class="text-xs text-on-surface-variant">
+          Este nivel lo asignan los operadores de DownLabs según tu historial de respuestas y calidad.
+        </p>
       </div>
     </div>
   </div>
-
-  <!-- Warehouse Status -->
-  <section class="mt-12">
-    <h3 class="font-headline text-2xl font-bold text-on-surface mb-6">Estado de Almacén</h3>
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-6">
-      <div class="bg-surface-container-low p-6 rounded-xl">
-        <p class="text-xs font-label uppercase tracking-widest text-on-surface-variant mb-4">Capacidad Total</p>
-        <div class="w-full bg-surface-variant h-1 rounded-full overflow-hidden mb-2">
-          <div class="bg-secondary h-full w-[72%]"></div>
-        </div>
-        <p class="text-xl font-bold font-headline">72% <span class="text-sm font-normal text-on-surface-variant">Ocupado</span></p>
-      </div>
-      <div class="bg-surface-container-low p-6 rounded-xl">
-        <p class="text-xs font-label uppercase tracking-widest text-on-surface-variant mb-4">Retornos Semanales</p>
-        <div class="w-full bg-surface-variant h-1 rounded-full overflow-hidden mb-2">
-          <div class="bg-error h-full w-[4%]"></div>
-        </div>
-        <p class="text-xl font-bold font-headline">4.2% <span class="text-sm font-normal text-on-surface-variant">Tasa error</span></p>
-      </div>
-      <div class="bg-surface-container-low p-6 rounded-xl">
-        <p class="text-xs font-label uppercase tracking-widest text-on-surface-variant mb-4">Eficiencia Carga</p>
-        <div class="w-full bg-surface-variant h-1 rounded-full overflow-hidden mb-2">
-          <div class="bg-primary h-full w-[94%]"></div>
-        </div>
-        <p class="text-xl font-bold font-headline">94% <span class="text-sm font-normal text-on-surface-variant">Óptimo</span></p>
-      </div>
-      <div class="bg-surface-container-low p-6 rounded-xl">
-        <p class="text-xs font-label uppercase tracking-widest text-on-surface-variant mb-4">Nuevos SKU</p>
-        <div class="w-full bg-surface-variant h-1 rounded-full overflow-hidden mb-2">
-          <div class="bg-tertiary h-full w-[15%]"></div>
-        </div>
-        <p class="text-xl font-bold font-headline">+18 <span class="text-sm font-normal text-on-surface-variant">Este mes</span></p>
-      </div>
-    </div>
-  </section>
 </DashboardLayout>

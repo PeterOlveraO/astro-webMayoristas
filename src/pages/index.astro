@@ -1,115 +1,235 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
-import GoogleIcon from '../components/icons/GoogleIcon.astro';
 ---
 
-<BaseLayout title="Login · Coperativa">
-  <div
-    class="min-h-screen bg-background-light flex items-center justify-center p-4 font-display"
-    style="--color-primary: #002466"
-  >
-    <div class="w-full max-w-[440px] bg-white rounded-xl shadow-2xl flex flex-col overflow-hidden border border-slate-200">
+<BaseLayout title="Iniciar Sesión · DownLabs Proveedores">
+  <div class="min-h-screen bg-surface flex items-center justify-center p-4 font-body relative overflow-hidden">
+    
+    <!-- Background effects -->
+    <div class="absolute inset-0 overflow-hidden pointer-events-none">
+      <div class="absolute -top-40 -right-40 w-96 h-96 bg-primary/5 rounded-full blur-[120px]"></div>
+      <div class="absolute -bottom-40 -left-40 w-96 h-96 bg-secondary/5 rounded-full blur-[120px]"></div>
+    </div>
 
-      <div class="p-8 pb-0">
-        <div class="flex flex-col gap-2 mb-8">
-          <div class="flex items-center gap-2 text-primary mb-2">
-            <span class="material-symbols-outlined text-4xl">account_balance</span>
-            <span class="text-2xl font-black tracking-tight">COPERATIVA</span>
+    <div class="w-full max-w-[440px] relative z-10">
+      
+      <!-- Brand -->
+      <div class="text-center mb-8">
+        <div class="inline-flex items-center gap-3 mb-4">
+          <div class="w-12 h-12 rounded-xl gradient-primary flex items-center justify-center">
+            <span class="material-symbols-outlined text-[#0f1419] text-2xl">storefront</span>
           </div>
-          <h3 class="text-slate-900 text-2xl font-bold leading-tight">Bienvenido de nuevo</h3>
-          <p class="text-slate-500 text-sm">Ingresa tus credenciales para acceder a tu panel.</p>
         </div>
+        <h1 class="font-headline text-3xl font-extrabold text-on-surface tracking-tight">DownLabs</h1>
+        <p class="text-on-surface-variant text-sm mt-1">Portal de Proveedores</p>
+      </div>
 
-        <div class="flex flex-col gap-5">
-          <!-- Correo electrónico -->
-          <div class="flex flex-col gap-2">
-            <label class="text-slate-700 text-sm font-semibold">Correo electrónico</label>
-            <div class="relative group">
-              <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 group-focus-within:text-primary">
-                <span class="material-symbols-outlined text-xl">mail</span>
+      <!-- Login Card -->
+      <div class="glass-card rounded-2xl overflow-hidden">
+        <div class="p-8">
+          <h2 class="text-on-surface text-xl font-bold mb-1">Bienvenido de nuevo</h2>
+          <p class="text-on-surface-variant text-sm mb-8">Ingresa con tu correo y contraseña.</p>
+
+          <!-- Error -->
+          <div id="error-msg" style="display:none;" class="mb-4 p-3 rounded-xl bg-error-container/20 border border-error/20 text-error text-sm flex items-center gap-2">
+            <span class="material-symbols-outlined text-base">error</span>
+            <span id="error-text"></span>
+          </div>
+
+          <form id="login-form" class="flex flex-col gap-5">
+            <!-- Email -->
+            <div class="flex flex-col gap-1.5">
+              <label class="text-on-surface-variant text-sm font-semibold">Correo electrónico</label>
+              <div class="relative">
+                <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg">mail</span>
+                <input id="login-email" type="email" required placeholder="tucorreo@empresa.com" class="w-full pl-10 pr-4 py-3 bg-surface-container border border-outline-subtle rounded-xl text-sm text-on-surface placeholder-on-surface-variant focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/20 transition-smooth" />
               </div>
-              <input
-                id="email"
-                type="email"
-                placeholder="nombre@empresa.com"
-                class="block w-full pl-10 pr-3 py-3 border border-slate-200 rounded-lg bg-slate-50 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
-              />
             </div>
-          </div>
 
-          <!-- Contraseña -->
-          <div class="flex flex-col gap-2">
-            <label class="text-slate-700 text-sm font-semibold">Contraseña</label>
-            <div class="relative group">
-              <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 group-focus-within:text-primary">
-                <span class="material-symbols-outlined text-xl">lock</span>
+            <!-- Password -->
+            <div class="flex flex-col gap-1.5">
+              <label class="text-on-surface-variant text-sm font-semibold">Contraseña</label>
+              <div class="relative">
+                <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg">lock</span>
+                <input id="login-password" type="password" required minlength="6" placeholder="••••••••" class="w-full pl-10 pr-12 py-3 bg-surface-container border border-outline-subtle rounded-xl text-sm text-on-surface placeholder-on-surface-variant focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/20 transition-smooth" />
+                <div class="absolute inset-y-0 right-0 pr-3 flex items-center cursor-pointer" onclick="(function(ev){ev.preventDefault();ev.stopPropagation();var p=document.getElementById('login-password');var i=document.getElementById('login-eye');if(p.type==='password'){p.type='text';i.textContent='visibility_off';}else{p.type='password';i.textContent='visibility';}}).call(this,event)">
+                  <span id="login-eye" class="material-symbols-outlined text-lg text-on-surface-variant hover:text-primary">visibility</span>
+                </div>
               </div>
-              <input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                class="block w-full pl-10 pr-10 py-3 border border-slate-200 rounded-lg bg-slate-50 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
-              />
-              <button id="toggle-pwd" type="button" class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600">
-                <span id="eye-icon" class="material-symbols-outlined text-xl">visibility</span>
-              </button>
             </div>
-          </div>
 
-          <!-- Recordarme + Olvidaste contraseña -->
-          <div class="flex items-center justify-between py-1">
-            <label class="flex items-center gap-2 cursor-pointer group">
-              <input
-                type="checkbox"
-                class="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary focus:ring-offset-0 bg-white"
-              />
-              <span class="text-sm text-slate-600 group-hover:text-slate-900">Recordarme</span>
-            </label>
-            <a href="#" class="text-sm font-semibold text-primary hover:underline">¿Olvidaste tu contraseña?</a>
-          </div>
+            <!-- Submit -->
+            <button type="submit" id="btn-login" class="w-full gradient-primary text-[#0f1419] font-bold py-3.5 rounded-xl transition-smooth hover:shadow-lg hover:shadow-primary/20 flex items-center justify-center gap-2 mt-2 hover:scale-[1.02] active:scale-[0.98]">
+              <span id="btn-login-text">Iniciar Sesión</span>
+              <span class="material-symbols-outlined text-lg" id="btn-login-icon">login</span>
+            </button>
+          </form>
+        </div>
 
-          <!-- Botón iniciar sesión -->
-          <a
-            href="/dashboard"
-            class="w-full bg-primary hover:bg-primary/90 text-white font-bold py-3.5 rounded-lg transition-colors shadow-lg shadow-primary/20 flex items-center justify-center gap-2 mt-2"
-          >
-            <span>Iniciar Sesión</span>
-            <span class="material-symbols-outlined text-lg">login</span>
-          </a>
+        <!-- Footer -->
+        <div class="bg-surface-container/50 p-5 border-t border-outline-subtle text-center">
+          <p class="text-sm text-on-surface-variant">
+            ¿No tienes cuenta? <a href="/registro" class="text-primary font-semibold hover:underline">Regístrate aquí</a>
+          </p>
         </div>
       </div>
 
-      <div class="p-8 pt-6">
-        <div class="relative flex py-2 items-center">
-          <div class="flex-grow border-t border-slate-200"></div>
-          <span class="flex-shrink mx-4 text-slate-400 text-xs font-medium uppercase tracking-wider">O accede con</span>
-          <div class="flex-grow border-t border-slate-200"></div>
-        </div>
-
-        <button class="w-full flex items-center justify-center gap-3 py-3 px-4 border border-slate-200 rounded-lg hover:bg-slate-50 transition-all mt-6 group">
-          <GoogleIcon />
-          <span class="text-sm font-semibold text-slate-700">Continuar con Google</span>
-        </button>
-      </div>
-
-      <div class="mt-auto bg-slate-50 p-6 border-t border-slate-100 text-center">
-        <p class="text-sm text-slate-600">
-          ¿No tienes una cuenta? <a href="#" class="text-primary font-bold hover:underline">Regístrate</a>
-        </p>
-      </div>
-
+      <p class="text-center text-[11px] text-on-surface-variant mt-6">
+        Powered by <span class="text-primary font-semibold">DownLabs</span> · B2B Commerce Platform
+      </p>
     </div>
   </div>
 </BaseLayout>
 
-<script>
-  const toggleBtn = document.getElementById('toggle-pwd');
-  const passwordInput = document.getElementById('password') as HTMLInputElement;
-  const eyeIcon = document.getElementById('eye-icon');
+<script is:inline>
+  // Load Supabase from CDN (avoids module bundling issues)
+  var SUPABASE_URL = 'https://fjxddcpjzewmqmrscykp.supabase.co';
+  var SUPABASE_KEY = 'sb_publishable_7TG9orn93oxr1kVB9W6O1w_ZbBJ2p-S';
 
-  toggleBtn?.addEventListener('click', () => {
-    const isPassword = passwordInput.type === 'password';
-    passwordInput.type = isPassword ? 'text' : 'password';
-    if (eyeIcon) eyeIcon.textContent = isPassword ? 'visibility_off' : 'visibility';
+  // We'll use the Supabase JS client that's already bundled by Astro
+  // But wrap in a dynamic import to avoid issues
+  async function getSupabase() {
+    var mod = await import('/node_modules/@supabase/supabase-js/dist/module/index.js').catch(function() { return null; });
+    if (mod && mod.createClient) return mod.createClient(SUPABASE_URL, SUPABASE_KEY);
+    // Fallback: use fetch directly
+    return null;
+  }
+
+  // Check if already logged in (via cookie)
+  function getCookie(name) {
+    var m = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+    return m ? m[2] : '';
+  }
+  if (getCookie('proveedor_id')) {
+    window.location.href = '/dashboard';
+  }
+
+  document.getElementById('login-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    var errorDiv = document.getElementById('error-msg');
+    var errorText = document.getElementById('error-text');
+    var btn = document.getElementById('btn-login');
+    var btnText = document.getElementById('btn-login-text');
+    var btnIcon = document.getElementById('btn-login-icon');
+
+    var email = document.getElementById('login-email').value.trim();
+    var password = document.getElementById('login-password').value;
+
+    if (!email || !password) {
+      errorDiv.style.display = 'flex';
+      errorText.textContent = 'Ingresa tu correo y contraseña.';
+      return;
+    }
+
+    errorDiv.style.display = 'none';
+    btn.disabled = true;
+    btnText.textContent = 'Ingresando...';
+    btnIcon.textContent = 'progress_activity';
+    btnIcon.style.animation = 'spin 1s linear infinite';
+
+    try {
+      // Use Supabase Auth REST API directly (no client lib needed)
+      var res = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=password', {
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: email, password: password }),
+      });
+
+      var data = await res.json();
+      console.log('Login response:', data);
+
+      if (!res.ok || data.error || data.error_description) {
+        var msg = data.error_description || data.msg || data.error || 'Error desconocido';
+        if (msg.includes('Invalid login')) msg = 'Correo o contraseña incorrectos.';
+        if (msg.includes('Email not confirmed')) msg = 'Confirma tu correo antes de iniciar sesión. Revisa tu bandeja.';
+        errorDiv.style.display = 'flex';
+        errorText.textContent = msg;
+        btn.disabled = false;
+        btnText.textContent = 'Iniciar Sesión';
+        btnIcon.textContent = 'login';
+        btnIcon.style.animation = '';
+        return;
+      }
+
+      // data.user.user_metadata should have our info
+      var meta = data.user && data.user.user_metadata ? data.user.user_metadata : {};
+      var mayorId = meta.mayorista_id;
+      var empresaNombre = meta.nombre_empresa || '';
+
+      // If no mayorista_id, try to create the mayorista now (user is authenticated)
+      if (!mayorId && empresaNombre && data.access_token) {
+        var insertRes = await fetch(SUPABASE_URL + '/rest/v1/mayoristas', {
+          method: 'POST',
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': 'Bearer ' + data.access_token,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=representation',
+          },
+          body: JSON.stringify({
+            nombre_empresa: empresaNombre,
+            ubicacion: meta.direccion_fiscal || '',
+            nivel_confianza: 3,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          }),
+        });
+        var insertData = await insertRes.json();
+        console.log('Mayorista insert result:', insertData);
+
+        if (Array.isArray(insertData) && insertData.length > 0) {
+          mayorId = insertData[0].id_mayorista;
+          // Update user metadata
+          await fetch(SUPABASE_URL + '/auth/v1/user', {
+            method: 'PUT',
+            headers: {
+              'apikey': SUPABASE_KEY,
+              'Authorization': 'Bearer ' + data.access_token,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ data: { mayorista_id: mayorId } }),
+          });
+        }
+      }
+
+      if (!mayorId) {
+        errorDiv.style.display = 'flex';
+        errorText.textContent = 'Tu cuenta no está vinculada a un proveedor. Contacta a DownLabs si el problema persiste.';
+        btn.disabled = false;
+        btnText.textContent = 'Iniciar Sesión';
+        btnIcon.textContent = 'login';
+        btnIcon.style.animation = '';
+        return;
+      }
+
+      // Set cookies
+      document.cookie = 'proveedor_id=' + mayorId + '; path=/; max-age=604800; SameSite=Lax';
+      document.cookie = 'proveedor_nombre=' + encodeURIComponent(empresaNombre) + '; path=/; max-age=604800; SameSite=Lax';
+
+      // store access token for supabase client
+      document.cookie = 'sb_access_token=' + data.access_token + '; path=/; max-age=604800; SameSite=Lax';
+
+      window.location.href = '/dashboard';
+
+    } catch (err) {
+      console.error('Login error:', err);
+      errorDiv.style.display = 'flex';
+      errorText.textContent = 'Error de red. Verifica tu conexión.';
+    }
+
+    btn.disabled = false;
+    btnText.textContent = 'Iniciar Sesión';
+    btnIcon.textContent = 'login';
+    btnIcon.style.animation = '';
   });
 </script>
+
+<style>
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+</style>

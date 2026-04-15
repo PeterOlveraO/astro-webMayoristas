@@ -1,0 +1,38 @@
+---
+interface Props {
+  activeNav?: string;
+}
+const { activeNav = 'dashboard' } = Astro.props;
+
+const navItems = [
+  { icon: 'space_dashboard',  label: 'Dashboard',    href: '/dashboard',             key: 'dashboard' },
+  { icon: 'inventory_2',      label: 'Catálogo',     href: '/dashboard/catalogo',     key: 'catalogo'  },
+  { icon: 'request_quote',    label: 'Cotizaciones', href: '/dashboard/cotizaciones', key: 'cotizaciones' },
+  { icon: 'history',          label: 'Historial',    href: '/dashboard/historial',    key: 'historial' },
+];
+---
+
+<nav class="fixed bottom-0 left-0 right-0 z-50 bg-surface-container-low/95 backdrop-blur-xl border-t border-outline-subtle safe-area-bottom">
+  <div class="flex items-center justify-around px-2 py-2">
+    {navItems.map((item) => (
+      <a
+        href={item.href}
+        class:list={[
+          "flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-smooth min-w-[64px]",
+          item.key === activeNav
+            ? "text-primary bg-primary/10"
+            : "text-on-surface-variant hover:text-primary"
+        ]}
+      >
+        <span class="material-symbols-outlined text-xl">{item.icon}</span>
+        <span class="text-[10px] font-semibold">{item.label}</span>
+      </a>
+    ))}
+  </div>
+</nav>
+
+<style>
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+</style>

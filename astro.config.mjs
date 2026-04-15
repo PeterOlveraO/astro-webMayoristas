@@ -1,9 +1,12 @@
 // @ts-check
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'astro/config';
+import vercel from '@astrojs/vercel';
 
 export default defineConfig({
-	site: 'https://example.com',
+	output: 'server',
+	adapter: vercel(),
+	site: 'https://proveedores.downlabs.mx',
 	vite: {
 		plugins: [tailwindcss()],
 	},

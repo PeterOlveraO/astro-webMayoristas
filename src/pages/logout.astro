@@ -1,0 +1,35 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+
+// Clear cookies on server side
+Astro.cookies.delete('proveedor_id', { path: '/' });
+Astro.cookies.delete('proveedor_nombre', { path: '/' });
+---
+
+<BaseLayout title="Cerrando Sesión · DownLabs">
+  <div class="min-h-screen bg-surface flex items-center justify-center p-4 font-body">
+    <div class="text-center">
+      <div class="w-16 h-16 rounded-2xl gradient-primary flex items-center justify-center mx-auto mb-6">
+        <span class="material-symbols-outlined text-[#0f1419] text-3xl animate-spin">progress_activity</span>
+      </div>
+      <h2 class="font-headline text-xl font-bold text-on-surface mb-2">Cerrando sesión...</h2>
+      <p class="text-on-surface-variant text-sm">Serás redirigido al inicio.</p>
+    </div>
+  </div>
+</BaseLayout>
+
+<script>
+  import { supabase } from '../db/supabase';
+
+  // Sign out from Supabase Auth
+  await supabase.auth.signOut();
+
+  // Clear cookies on client side too
+  document.cookie = 'proveedor_id=; path=/; max-age=0';
+  document.cookie = 'proveedor_nombre=; path=/; max-age=0';
+
+  // Redirect to login
+  setTimeout(() => {
+    window.location.href = '/';
+  }, 800);
+</script>

@@ -1,0 +1,249 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="Registro · DownLabs Proveedores">
+  <div class="min-h-screen bg-surface flex items-center justify-center p-4 font-body relative overflow-hidden">
+    
+    <!-- Background effects -->
+    <div class="absolute inset-0 overflow-hidden pointer-events-none">
+      <div class="absolute -top-40 -left-40 w-96 h-96 bg-secondary/5 rounded-full blur-[120px]"></div>
+      <div class="absolute -bottom-40 -right-40 w-96 h-96 bg-primary/5 rounded-full blur-[120px]"></div>
+    </div>
+
+    <div class="w-full max-w-[480px] relative z-10">
+      
+      <!-- Brand -->
+      <div class="text-center mb-8">
+        <div class="inline-flex items-center gap-3 mb-4">
+          <div class="w-12 h-12 rounded-xl gradient-primary flex items-center justify-center">
+            <span class="material-symbols-outlined text-[#0f1419] text-2xl">storefront</span>
+          </div>
+        </div>
+        <h1 class="font-headline text-3xl font-extrabold text-on-surface tracking-tight">DownLabs</h1>
+        <p class="text-on-surface-variant text-sm mt-1">Portal de Proveedores</p>
+      </div>
+
+      <!-- Card -->
+      <div class="glass-card rounded-2xl overflow-hidden">
+        <div class="p-8">
+          <h2 class="text-on-surface text-xl font-bold mb-1">Crear Cuenta</h2>
+          <p class="text-on-surface-variant text-sm mb-8">Registra tu empresa y crea tu acceso al portal.</p>
+
+          <!-- Error -->
+          <div id="error-msg" class="hidden mb-4 p-3 rounded-xl bg-error-container/20 border border-error/20 text-error text-sm items-center gap-2" style="display:none;">
+            <span class="material-symbols-outlined text-base">error</span>
+            <span id="error-text"></span>
+          </div>
+
+          <!-- Success -->
+          <div id="success-msg" class="hidden mb-4 p-4 rounded-xl bg-success/10 border border-success/20 text-success text-sm" style="display:none;">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="material-symbols-outlined text-base">check_circle</span>
+              <span class="font-bold" id="success-text"></span>
+            </div>
+            <p class="text-on-surface-variant text-xs" id="success-detail"></p>
+            <a href="/" class="inline-flex items-center gap-2 mt-3 px-4 py-2 gradient-primary text-[#0f1419] rounded-xl text-sm font-bold hover:scale-[1.02] transition-smooth">
+              <span class="material-symbols-outlined text-base">login</span>
+              Ir a Iniciar Sesión
+            </a>
+          </div>
+
+          <form id="register-form" class="flex flex-col gap-5">
+            <p class="text-[10px] font-semibold text-on-surface-variant uppercase tracking-[0.2em] -mb-2">Datos de la Empresa</p>
+
+            <!-- Nombre empresa -->
+            <div class="flex flex-col gap-1.5">
+              <label class="text-on-surface-variant text-sm font-semibold">Nombre de la Empresa *</label>
+              <div class="relative">
+                <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg">business</span>
+                <input id="reg-empresa" type="text" required placeholder="Ej: TechNova Solutions" class="w-full pl-10 pr-4 py-3 bg-surface-container border border-outline-subtle rounded-xl text-sm text-on-surface placeholder-on-surface-variant focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/20 transition-smooth" />
+              </div>
+            </div>
+
+            <!-- RFC -->
+            <div class="flex flex-col gap-1.5">
+              <label class="text-on-surface-variant text-sm font-semibold">RFC *</label>
+              <div class="relative">
+                <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg">badge</span>
+                <input id="reg-rfc" type="text" required maxlength="13" placeholder="Ej: TNS260101AB1" class="w-full pl-10 pr-4 py-3 bg-surface-container border border-outline-subtle rounded-xl text-sm text-on-surface placeholder-on-surface-variant focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/20 transition-smooth uppercase" />
+              </div>
+            </div>
+
+            <!-- Dirección -->
+            <div class="flex flex-col gap-1.5">
+              <label class="text-on-surface-variant text-sm font-semibold">Dirección Fiscal *</label>
+              <div class="relative">
+                <span class="material-symbols-outlined absolute left-3 top-3 text-on-surface-variant text-lg">location_on</span>
+                <textarea id="reg-direccion" required rows="2" placeholder="Ej: Av. Revolución 123, Col. Centro, Monterrey, NL" class="w-full pl-10 pr-4 py-3 bg-surface-container border border-outline-subtle rounded-xl text-sm text-on-surface placeholder-on-surface-variant focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/20 transition-smooth resize-none"></textarea>
+              </div>
+            </div>
+
+            <!-- Operador -->
+            <div class="flex flex-col gap-1.5">
+              <label class="text-on-surface-variant text-sm font-semibold">Nombre del Operador *</label>
+              <div class="relative">
+                <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg">person</span>
+                <input id="reg-operador" type="text" required placeholder="Ej: Juan Pérez" class="w-full pl-10 pr-4 py-3 bg-surface-container border border-outline-subtle rounded-xl text-sm text-on-surface placeholder-on-surface-variant focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/20 transition-smooth" />
+              </div>
+            </div>
+
+            <div class="border-t border-outline-subtle"></div>
+            <p class="text-[10px] font-semibold text-on-surface-variant uppercase tracking-[0.2em] -mb-2">Credenciales de Acceso</p>
+
+            <!-- Email -->
+            <div class="flex flex-col gap-1.5">
+              <label class="text-on-surface-variant text-sm font-semibold">Correo electrónico *</label>
+              <div class="relative">
+                <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg">mail</span>
+                <input id="reg-email" type="email" required placeholder="tucorreo@empresa.com" class="w-full pl-10 pr-4 py-3 bg-surface-container border border-outline-subtle rounded-xl text-sm text-on-surface placeholder-on-surface-variant focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/20 transition-smooth" />
+              </div>
+            </div>
+
+            <!-- Password con eye toggle usando onclick inline -->
+            <div class="flex flex-col gap-1.5">
+              <label class="text-on-surface-variant text-sm font-semibold">Contraseña *</label>
+              <div class="relative">
+                <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg">lock</span>
+                <input id="reg-password" type="password" required minlength="6" placeholder="Mínimo 6 caracteres" class="w-full pl-10 pr-12 py-3 bg-surface-container border border-outline-subtle rounded-xl text-sm text-on-surface placeholder-on-surface-variant focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/20 transition-smooth" />
+                <div class="absolute inset-y-0 right-0 pr-3 flex items-center cursor-pointer" onclick="(function(e){e.preventDefault();e.stopPropagation();var p=document.getElementById('reg-password');var i=document.getElementById('eye1');if(p.type==='password'){p.type='text';i.textContent='visibility_off';}else{p.type='password';i.textContent='visibility';}}).call(this,event)">
+                  <span id="eye1" class="material-symbols-outlined text-lg text-on-surface-variant hover:text-primary">visibility</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Confirm Password -->
+            <div class="flex flex-col gap-1.5">
+              <label class="text-on-surface-variant text-sm font-semibold">Confirmar Contraseña *</label>
+              <div class="relative">
+                <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg">lock</span>
+                <input id="reg-password2" type="password" required minlength="6" placeholder="Repite tu contraseña" class="w-full pl-10 pr-12 py-3 bg-surface-container border border-outline-subtle rounded-xl text-sm text-on-surface placeholder-on-surface-variant focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/20 transition-smooth" />
+                <div class="absolute inset-y-0 right-0 pr-3 flex items-center cursor-pointer" onclick="(function(e){e.preventDefault();e.stopPropagation();var p=document.getElementById('reg-password2');var i=document.getElementById('eye2');if(p.type==='password'){p.type='text';i.textContent='visibility_off';}else{p.type='password';i.textContent='visibility';}}).call(this,event)">
+                  <span id="eye2" class="material-symbols-outlined text-lg text-on-surface-variant hover:text-primary">visibility</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Submit -->
+            <button type="submit" id="btn-register" class="w-full gradient-primary text-[#0f1419] font-bold py-3.5 rounded-xl transition-smooth hover:shadow-lg hover:shadow-primary/20 flex items-center justify-center gap-2 mt-2 hover:scale-[1.02] active:scale-[0.98]">
+              <span id="btn-text">Crear Cuenta</span>
+              <span class="material-symbols-outlined text-lg" id="btn-icon">person_add</span>
+            </button>
+          </form>
+        </div>
+
+        <div class="bg-surface-container/50 p-5 border-t border-outline-subtle text-center">
+          <p class="text-sm text-on-surface-variant">
+            ¿Ya tienes cuenta? <a href="/" class="text-primary font-semibold hover:underline">Inicia sesión</a>
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</BaseLayout>
+
+<script is:inline>
+  document.getElementById('register-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+
+    var errorDiv = document.getElementById('error-msg');
+    var errorText = document.getElementById('error-text');
+    var successDiv = document.getElementById('success-msg');
+    var btn = document.getElementById('btn-register');
+    var btnText = document.getElementById('btn-text');
+    var btnIcon = document.getElementById('btn-icon');
+
+    var nombreEmpresa = document.getElementById('reg-empresa').value.trim();
+    var rfc = document.getElementById('reg-rfc').value.trim().toUpperCase();
+    var direccion = document.getElementById('reg-direccion').value.trim();
+    var operador = document.getElementById('reg-operador').value.trim();
+    var email = document.getElementById('reg-email').value.trim();
+    var password = document.getElementById('reg-password').value;
+    var password2 = document.getElementById('reg-password2').value;
+
+    // Hide messages
+    errorDiv.style.display = 'none';
+    successDiv.style.display = 'none';
+
+    // Validate
+    if (!nombreEmpresa) { errorDiv.style.display = 'flex'; errorText.textContent = 'Ingresa el nombre de tu empresa.'; return; }
+    if (!rfc || rfc.length < 12) { errorDiv.style.display = 'flex'; errorText.textContent = 'Ingresa un RFC válido (12-13 caracteres).'; return; }
+    if (!direccion) { errorDiv.style.display = 'flex'; errorText.textContent = 'Ingresa la dirección fiscal.'; return; }
+    if (!operador) { errorDiv.style.display = 'flex'; errorText.textContent = 'Ingresa el nombre del operador.'; return; }
+    if (!email) { errorDiv.style.display = 'flex'; errorText.textContent = 'Ingresa tu correo electrónico.'; return; }
+    if (password.length < 6) { errorDiv.style.display = 'flex'; errorText.textContent = 'La contraseña debe tener al menos 6 caracteres.'; return; }
+    if (password !== password2) { errorDiv.style.display = 'flex'; errorText.textContent = 'Las contraseñas no coinciden.'; return; }
+
+    // Show loading
+    btn.disabled = true;
+    btnText.textContent = 'Creando cuenta...';
+    btnIcon.textContent = 'progress_activity';
+    btnIcon.style.animation = 'spin 1s linear infinite';
+
+    try {
+      var res = await fetch('/api/registro', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: email,
+          password: password,
+          nombre_empresa: nombreEmpresa,
+          rfc: rfc,
+          direccion_fiscal: direccion,
+          nombre_operador: operador,
+        }),
+      });
+
+      var result = await res.json();
+      console.log('Registration result:', result);
+
+      if (!res.ok || result.error) {
+        errorDiv.style.display = 'flex';
+        errorText.textContent = result.error || 'Error desconocido al registrar.';
+        btn.disabled = false;
+        btnText.textContent = 'Crear Cuenta';
+        btnIcon.textContent = 'person_add';
+        btnIcon.style.animation = '';
+        return;
+      }
+
+      // Success!
+      if (result.has_session && result.mayorista_id) {
+        // Auto confirmed — set cookies and redirect
+        document.cookie = 'proveedor_id=' + result.mayorista_id + '; path=/; max-age=604800; SameSite=Lax';
+        document.cookie = 'proveedor_nombre=' + encodeURIComponent(nombreEmpresa) + '; path=/; max-age=604800; SameSite=Lax';
+        successDiv.style.display = 'block';
+        document.getElementById('success-text').textContent = '¡Cuenta creada! Redirigiendo al panel...';
+        document.getElementById('success-detail').textContent = '';
+        document.getElementById('register-form').style.display = 'none';
+        setTimeout(function() { window.location.href = '/dashboard'; }, 1200);
+      } else {
+        // Needs email confirmation
+        successDiv.style.display = 'block';
+        document.getElementById('success-text').textContent = '¡Cuenta creada exitosamente!';
+        document.getElementById('success-detail').textContent = 'Enviamos un enlace de confirmación a ' + email + '. Revisa tu bandeja (y spam) para activar tu cuenta.';
+        document.getElementById('register-form').style.display = 'none';
+
+        if (result.db_error) {
+          console.warn('DB insert issue (mayorista row):', result.db_error);
+        }
+      }
+    } catch (err) {
+      console.error('Registration fetch error:', err);
+      errorDiv.style.display = 'flex';
+      errorText.textContent = 'Error de red. Verifica tu conexión e intenta de nuevo.';
+    }
+
+    btn.disabled = false;
+    btnText.textContent = 'Crear Cuenta';
+    btnIcon.textContent = 'person_add';
+    btnIcon.style.animation = '';
+  });
+</script>
+
+<style>
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+</style>

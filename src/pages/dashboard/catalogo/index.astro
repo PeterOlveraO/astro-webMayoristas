@@ -1,0 +1,592 @@
+---
+import DashboardLayout from '../../../layouts/DashboardLayout.astro';
+import { supabase } from '../../../db/supabase';
+
+const proveedorId = Astro.cookies.get('proveedor_id')?.value;
+if (!proveedorId) return Astro.redirect('/');
+
+// Fetch products
+const { data: productos } = await supabase
+  .from('catalogo_productos')
+  .select('*')
+  .eq('id_mayorista', proveedorId)
+  .order('created_at', { ascending: false });
+
+const items = productos || [];
+
+// Generate dynamic categories from the provider's own products
+const categoriasSet = new Set<string>();
+items.forEach((p: any) => { if (p.categoria) categoriasSet.add(p.categoria); });
+const categorias = Array.from(categoriasSet).sort();
+
+const categoryIcons: Record<string, string> = {
+  'Periféricos': 'mouse', 'Monitores': 'desktop_windows', 'Audio': 'headphones',
+  'Mobiliario': 'chair', 'Accesorios': 'cable', 'Computadoras': 'computer',
+  'Redes': 'router', 'Almacenamiento': 'hard_drive', 'Impresoras': 'print',
+  'Electrónica': 'memory', 'Cables': 'cable', 'Software': 'code',
+};
+---
+
+<DashboardLayout title="Mi Catálogo" activeNav="catalogo">
+  <!-- Header -->
+  <header class="mb-8">
+    <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+      <div>
+        <p class="text-sm font-semibold text-primary uppercase tracking-widest mb-2">Gestión de Productos</p>
+        <h1 class="font-headline text-3xl md:text-4xl font-extrabold text-on-surface tracking-tight">
+          Mi Catálogo
+        </h1>
+        <p class="text-on-surface-variant font-body mt-1">{items.length} productos registrados</p>
+      </div>
+      <button
+        id="btn-add-product"
+        class="gradient-primary text-[#0f1419] font-bold py-3 px-6 rounded-xl transition-smooth hover:shadow-lg hover:shadow-primary/20 flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98] text-sm"
+      >
+        <span class="material-symbols-outlined text-lg">add</span>
+        Nuevo Producto
+      </button>
+    </div>
+  </header>
+
+  <!-- Category Filters (dynamic from provider's products) -->
+  <div class="flex gap-2 overflow-x-auto pb-4 mb-6 scrollbar-hide" id="cat-filters">
+    <button data-filter="all" class="cat-filter active shrink-0 px-4 py-2 rounded-xl text-sm font-semibold bg-primary/10 text-primary border border-primary/20 transition-smooth">
+      Todos ({items.length})
+    </button>
+    {categorias.map((cat) => {
+      const count = items.filter((p: any) => p.categoria === cat).length;
+      return (
+        <button data-filter={cat} class="cat-filter shrink-0 px-4 py-2 rounded-xl text-sm font-medium text-on-surface-variant bg-surface-container border border-outline-subtle hover:border-primary/20 hover:text-primary transition-smooth flex items-center gap-1.5">
+          <span class="material-symbols-outlined text-sm">{categoryIcons[cat] || 'category'}</span>
+          {cat} ({count})
+        </button>
+      );
+    })}
+  </div>
+
+  <!-- Products Grid -->
+  {items.length === 0 ? (
+    <div class="glass-card rounded-2xl p-16 text-center">
+      <span class="material-symbols-outlined text-6xl text-on-surface-variant mb-4">inventory_2</span>
+      <h3 class="text-xl font-bold text-on-surface mb-2">Tu catálogo está vacío</h3>
+      <p class="text-on-surface-variant mb-6">Agrega tu primer producto para que los operadores puedan incluirlo en cotizaciones.</p>
+      <button
+        id="btn-add-first"
+        class="gradient-primary text-[#0f1419] font-bold py-3 px-6 rounded-xl transition-smooth hover:shadow-lg hover:shadow-primary/20 inline-flex items-center gap-2"
+      >
+        <span class="material-symbols-outlined text-lg">add</span>
+        Agregar Producto
+      </button>
+    </div>
+  ) : (
+    <div id="products-grid" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+      {items.map((prod: any, i: number) => (
+        <div
+          class={`product-card glass-card rounded-2xl overflow-hidden group hover-glow transition-smooth animate-slide-up stagger-${Math.min(i + 1, 6)}`}
+          data-category={prod.categoria}
+          data-id={prod.id_producto}
+          style="opacity:0;"
+        >
+          <!-- Image -->
+          <div class="h-40 bg-surface-container relative overflow-hidden">
+            {prod.imagen_url ? (
+              <img src={prod.imagen_url} alt={prod.nombre_articulo} class="w-full h-full object-cover group-hover:scale-105 transition-smooth" />
+            ) : (
+              <div class="w-full h-full flex items-center justify-center">
+                <span class="material-symbols-outlined text-5xl text-on-surface-variant">
+                  {categoryIcons[prod.categoria] || 'package_2'}
+                </span>
+              </div>
+            )}
+            <div class="absolute top-3 right-3">
+              <span class="px-2.5 py-1 rounded-lg bg-surface/80 backdrop-blur-md text-xs font-semibold text-on-surface border border-outline-subtle">
+                {prod.categoria}
+              </span>
+            </div>
+          </div>
+
+          <!-- Content -->
+          <div class="p-5">
+            <h4 class="font-bold text-on-surface text-base mb-1 truncate">{prod.nombre_articulo}</h4>
+            <p class="text-xs text-on-surface-variant line-clamp-2 mb-4">{prod.descripcion || 'Sin descripción'}</p>
+            
+            <div class="flex items-end justify-between">
+              <div>
+                <p class="text-xs text-on-surface-variant uppercase tracking-widest">Precio mayorista</p>
+                <p class="text-xl font-bold text-primary">${Number(prod.precio_mayorista).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</p>
+              </div>
+              <div class="text-right">
+                <p class="text-xs text-on-surface-variant">Stock</p>
+                <p class="text-sm font-semibold text-on-surface">{prod.moq || 0} uds</p>
+              </div>
+            </div>
+
+            {prod.materiales && (
+              <p class="text-xs text-on-surface-variant mt-2">
+                <span class="font-semibold">Materiales:</span> {prod.materiales}
+              </p>
+            )}
+
+            <!-- Actions -->
+            <div class="flex items-center gap-2 mt-4 pt-4 border-t border-outline-subtle">
+              <button
+                class="btn-edit flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-surface-container hover:bg-primary/10 hover:text-primary text-on-surface-variant text-sm font-medium transition-smooth"
+                data-id={prod.id_producto}
+                data-name={prod.nombre_articulo}
+                data-category={prod.categoria}
+                data-price={prod.precio_mayorista}
+                data-materials={prod.materiales || ''}
+                data-moq={prod.moq || 1}
+                data-description={prod.descripcion || ''}
+                data-image={prod.imagen_url || ''}
+              >
+                <span class="material-symbols-outlined text-base">edit</span>
+                Editar
+              </button>
+              <button
+                class="btn-delete flex items-center justify-center gap-1.5 py-2 px-4 rounded-xl bg-surface-container hover:bg-error/10 hover:text-error text-on-surface-variant text-sm font-medium transition-smooth"
+                data-id={prod.id_producto}
+                data-name={prod.nombre_articulo}
+              >
+                <span class="material-symbols-outlined text-base">delete</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  )}
+
+  <!-- ===== MODAL: Add/Edit Product ===== -->
+  <div id="product-modal" class="fixed inset-0 z-[100]" style="display:none;">
+    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" id="modal-backdrop"></div>
+    <div class="absolute inset-0 flex items-center justify-center p-4">
+      <div class="bg-surface-container-low rounded-2xl border border-outline-subtle w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div class="p-6 border-b border-outline-subtle flex items-center justify-between sticky top-0 bg-surface-container-low z-10">
+          <h3 id="modal-title" class="font-headline text-lg font-bold text-on-surface">Nuevo Producto</h3>
+          <button id="modal-close" class="p-2 rounded-xl hover:bg-surface-container transition-smooth text-on-surface-variant hover:text-on-surface">
+            <span class="material-symbols-outlined">close</span>
+          </button>
+        </div>
+
+        <form id="product-form" class="p-6 space-y-5">
+          <input type="hidden" id="form-id" value="" />
+
+          <div class="flex flex-col gap-2">
+            <label class="text-sm font-semibold text-on-surface-variant">Nombre del Artículo *</label>
+            <input id="form-name" type="text" required placeholder="Ej: Mouse Inalámbrico Logitech MX Master" class="w-full px-4 py-3 bg-surface-container border border-outline-subtle rounded-xl text-sm text-on-surface placeholder-on-surface-variant focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/20 transition-smooth" />
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div class="flex flex-col gap-2">
+              <label class="text-sm font-semibold text-on-surface-variant">Categoría *</label>
+              <input id="form-category" type="text" required list="cat-list" placeholder="Ej: Periféricos" class="w-full px-4 py-3 bg-surface-container border border-outline-subtle rounded-xl text-sm text-on-surface placeholder-on-surface-variant focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/20 transition-smooth" />
+              <datalist id="cat-list">
+                {categorias.map((c) => <option value={c} />)}
+              </datalist>
+              <p class="text-[10px] text-on-surface-variant">Escribe o selecciona una categoría existente</p>
+            </div>
+            <div class="flex flex-col gap-2">
+              <label class="text-sm font-semibold text-on-surface-variant">Precio Mayorista *</label>
+              <div class="relative">
+                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-sm font-semibold">$</span>
+                <input id="form-price" type="number" step="0.01" min="0" required placeholder="0.00" class="w-full pl-8 pr-4 py-3 bg-surface-container border border-outline-subtle rounded-xl text-sm text-on-surface placeholder-on-surface-variant focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/20 transition-smooth" />
+              </div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div class="flex flex-col gap-2">
+              <label class="text-sm font-semibold text-on-surface-variant">Unidades Disponibles *</label>
+              <div class="relative">
+                <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-sm">inventory</span>
+                <input id="form-moq" type="number" min="0" value="0" required class="w-full pl-10 pr-4 py-3 bg-surface-container border border-outline-subtle rounded-xl text-sm text-on-surface focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/20 transition-smooth" />
+              </div>
+              <p class="text-[10px] text-on-surface-variant">¿Con cuántas unidades cuentas?</p>
+            </div>
+            <div class="flex flex-col gap-2">
+              <label class="text-sm font-semibold text-on-surface-variant">Materiales</label>
+              <input id="form-materials" type="text" placeholder="Ej: Plástico ABS, Aluminio" class="w-full px-4 py-3 bg-surface-container border border-outline-subtle rounded-xl text-sm text-on-surface placeholder-on-surface-variant focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/20 transition-smooth" />
+            </div>
+          </div>
+
+          <!-- Imagen: Subir archivo o pegar URL -->
+          <div class="flex flex-col gap-2">
+            <label class="text-sm font-semibold text-on-surface-variant">Imagen del Producto</label>
+            <div class="flex gap-2 mb-2">
+              <button type="button" id="tab-upload" class="img-tab flex-1 py-2 rounded-lg text-xs font-semibold bg-primary/10 text-primary border border-primary/20 flex items-center justify-center gap-1.5 transition-smooth" onclick="document.getElementById('upload-section').style.display='';document.getElementById('url-section').style.display='none';document.querySelectorAll('.img-tab').forEach(function(t){t.classList.remove('bg-primary/10','text-primary','border-primary/20');t.classList.add('bg-surface-container','text-on-surface-variant','border-outline-subtle')});this.classList.remove('bg-surface-container','text-on-surface-variant','border-outline-subtle');this.classList.add('bg-primary/10','text-primary','border-primary/20')">
+                <span class="material-symbols-outlined text-sm">upload_file</span>
+                Subir Archivo
+              </button>
+              <button type="button" id="tab-url" class="img-tab flex-1 py-2 rounded-lg text-xs font-medium bg-surface-container text-on-surface-variant border border-outline-subtle flex items-center justify-center gap-1.5 transition-smooth" onclick="document.getElementById('url-section').style.display='';document.getElementById('upload-section').style.display='none';document.querySelectorAll('.img-tab').forEach(function(t){t.classList.remove('bg-primary/10','text-primary','border-primary/20');t.classList.add('bg-surface-container','text-on-surface-variant','border-outline-subtle')});this.classList.remove('bg-surface-container','text-on-surface-variant','border-outline-subtle');this.classList.add('bg-primary/10','text-primary','border-primary/20')">
+                <span class="material-symbols-outlined text-sm">link</span>
+                Pegar URL
+              </button>
+            </div>
+
+            <!-- Upload section -->
+            <div id="upload-section">
+              <label class="flex flex-col items-center justify-center w-full h-32 rounded-xl border-2 border-dashed border-outline-subtle bg-surface-container hover:border-primary/30 hover:bg-primary/5 cursor-pointer transition-smooth" id="drop-zone">
+                <div id="upload-placeholder" class="flex flex-col items-center gap-2 text-on-surface-variant">
+                  <span class="material-symbols-outlined text-3xl">cloud_upload</span>
+                  <p class="text-xs font-medium">Haz clic o arrastra una imagen aquí</p>
+                  <p class="text-[10px]">JPG, PNG, WebP · Máx 5MB</p>
+                </div>
+                <div id="upload-preview" style="display:none;" class="flex items-center gap-3 p-2">
+                  <img id="preview-img" src="" alt="" class="w-16 h-16 rounded-lg object-cover" />
+                  <div>
+                    <p id="preview-name" class="text-xs font-semibold text-on-surface truncate max-w-[200px]"></p>
+                    <p id="preview-size" class="text-[10px] text-on-surface-variant"></p>
+                    <p id="upload-status" class="text-[10px] text-primary font-semibold"></p>
+                  </div>
+                </div>
+                <input type="file" id="form-file" accept="image/jpeg,image/png,image/webp,image/gif" class="hidden" />
+              </label>
+            </div>
+
+            <!-- URL section -->
+            <div id="url-section" style="display:none;">
+              <input id="form-image" type="url" placeholder="https://ejemplo.com/imagen.jpg" class="w-full px-4 py-3 bg-surface-container border border-outline-subtle rounded-xl text-sm text-on-surface placeholder-on-surface-variant focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/20 transition-smooth" />
+            </div>
+
+            <!-- Hidden field that actually stores the final URL -->
+            <input type="hidden" id="form-image-final" value="" />
+          </div>
+
+          <div class="flex flex-col gap-2">
+            <label class="text-sm font-semibold text-on-surface-variant">Descripción</label>
+            <textarea id="form-description" rows="3" placeholder="Describe el producto en detalle..." class="w-full px-4 py-3 bg-surface-container border border-outline-subtle rounded-xl text-sm text-on-surface placeholder-on-surface-variant focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/20 transition-smooth resize-none"></textarea>
+          </div>
+
+          <div id="form-error" style="display:none;" class="p-3 rounded-xl bg-error-container/20 border border-error/20 text-error text-sm flex items-center gap-2">
+            <span class="material-symbols-outlined text-base">error</span>
+            <span id="form-error-text"></span>
+          </div>
+
+          <div class="flex gap-3 pt-2">
+            <button type="button" id="btn-cancel" class="flex-1 py-3 rounded-xl border border-outline-subtle text-on-surface-variant font-semibold text-sm hover:bg-surface-container transition-smooth">
+              Cancelar
+            </button>
+            <button type="submit" id="btn-save" class="flex-1 gradient-primary text-[#0f1419] py-3 rounded-xl font-bold text-sm hover:shadow-lg hover:shadow-primary/20 transition-smooth flex items-center justify-center gap-2">
+              <span class="material-symbols-outlined text-base">save</span>
+              <span id="btn-save-text">Guardar</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== MODAL: Delete Confirmation ===== -->
+  <div id="delete-modal" class="fixed inset-0 z-[100]" style="display:none;">
+    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" id="delete-backdrop"></div>
+    <div class="absolute inset-0 flex items-center justify-center p-4">
+      <div class="bg-surface-container-low rounded-2xl border border-outline-subtle w-full max-w-sm p-6">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-12 h-12 rounded-xl bg-error/10 flex items-center justify-center">
+            <span class="material-symbols-outlined text-error text-2xl">delete_forever</span>
+          </div>
+          <div>
+            <h3 class="font-headline text-lg font-bold text-on-surface">Eliminar Producto</h3>
+            <p class="text-sm text-on-surface-variant">Esta acción no se puede deshacer</p>
+          </div>
+        </div>
+        <p class="text-sm text-on-surface-variant mb-6">
+          ¿Estás seguro de que quieres eliminar <strong id="delete-name" class="text-on-surface"></strong>?
+        </p>
+        <div class="flex gap-3">
+          <button id="delete-cancel" class="flex-1 py-3 rounded-xl border border-outline-subtle text-on-surface-variant font-semibold text-sm hover:bg-surface-container transition-smooth">
+            Cancelar
+          </button>
+          <button id="delete-confirm" class="flex-1 py-3 rounded-xl bg-error text-on-error font-bold text-sm hover:bg-error/80 transition-smooth flex items-center justify-center gap-2">
+            <span class="material-symbols-outlined text-base">delete</span>
+            Eliminar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</DashboardLayout>
+
+<script is:inline>
+  var SUPABASE_URL = 'https://fjxddcpjzewmqmrscykp.supabase.co';
+  var SUPABASE_KEY = 'sb_publishable_7TG9orn93oxr1kVB9W6O1w_ZbBJ2p-S';
+
+  function getCookie(name) {
+    var m = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+    return m ? m[2] : '';
+  }
+
+  var proveedorId = getCookie('proveedor_id');
+  var accessToken = getCookie('sb_access_token');
+  var authHeader = accessToken ? 'Bearer ' + accessToken : 'Bearer ' + SUPABASE_KEY;
+
+  // ---- Supabase REST helper ----
+  function sbFetch(path, method, body) {
+    var opts = {
+      method: method || 'GET',
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': authHeader,
+        'Content-Type': 'application/json',
+        'Prefer': method === 'POST' ? 'return=representation' : (method === 'PATCH' ? 'return=representation' : ''),
+      },
+    };
+    if (body) opts.body = JSON.stringify(body);
+    return fetch(SUPABASE_URL + '/rest/v1/' + path, opts).then(function(r) { return r.json().catch(function() { return null; }); });
+  }
+
+  // ---- Category Filter ----
+  document.querySelectorAll('.cat-filter').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('.cat-filter').forEach(function(b) {
+        b.classList.remove('bg-primary/10', 'text-primary', 'border-primary/20');
+        b.classList.add('bg-surface-container', 'text-on-surface-variant', 'border-outline-subtle');
+      });
+      btn.classList.remove('bg-surface-container', 'text-on-surface-variant', 'border-outline-subtle');
+      btn.classList.add('bg-primary/10', 'text-primary', 'border-primary/20');
+
+      var filter = btn.dataset.filter;
+      document.querySelectorAll('.product-card').forEach(function(card) {
+        if (filter === 'all' || card.dataset.category === filter) {
+          card.style.display = '';
+        } else {
+          card.style.display = 'none';
+        }
+      });
+    });
+  });
+
+  // ---- Modal Management ----
+  var productModal = document.getElementById('product-modal');
+  var deleteModal = document.getElementById('delete-modal');
+  var deleteTargetId = '';
+
+  function openModal(isEdit) {
+    productModal.style.display = '';
+    document.body.style.overflow = 'hidden';
+    document.getElementById('modal-title').textContent = isEdit ? 'Editar Producto' : 'Nuevo Producto';
+    document.getElementById('btn-save-text').textContent = isEdit ? 'Actualizar' : 'Guardar';
+  }
+
+  function closeModal() {
+    productModal.style.display = 'none';
+    document.body.style.overflow = '';
+    document.getElementById('product-form').reset();
+    document.getElementById('form-id').value = '';
+    document.getElementById('form-error').style.display = 'none';
+    document.getElementById('form-image-final').value = '';
+    // Reset upload preview
+    document.getElementById('upload-placeholder').style.display = '';
+    document.getElementById('upload-preview').style.display = 'none';
+    document.getElementById('upload-status').textContent = '';
+    // Reset to upload tab
+    document.getElementById('upload-section').style.display = '';
+    document.getElementById('url-section').style.display = 'none';
+  }
+
+  document.getElementById('btn-add-product').addEventListener('click', function() { openModal(false); });
+  var btnFirst = document.getElementById('btn-add-first');
+  if (btnFirst) btnFirst.addEventListener('click', function() { openModal(false); });
+  document.getElementById('modal-close').addEventListener('click', closeModal);
+  document.getElementById('modal-backdrop').addEventListener('click', closeModal);
+  document.getElementById('btn-cancel').addEventListener('click', closeModal);
+
+  // ---- Edit buttons ----
+  document.querySelectorAll('.btn-edit').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.getElementById('form-id').value = btn.dataset.id || '';
+      document.getElementById('form-name').value = btn.dataset.name || '';
+      document.getElementById('form-category').value = btn.dataset.category || '';
+      document.getElementById('form-price').value = btn.dataset.price || '';
+      document.getElementById('form-materials').value = btn.dataset.materials || '';
+      document.getElementById('form-moq').value = btn.dataset.moq || '0';
+      document.getElementById('form-description').value = btn.dataset.description || '';
+      // Store existing image in hidden field
+      var existingImg = btn.dataset.image || '';
+      document.getElementById('form-image-final').value = existingImg;
+      if (existingImg) {
+        // Show URL tab with existing image
+        document.getElementById('form-image').value = existingImg;
+        document.getElementById('url-section').style.display = '';
+        document.getElementById('upload-section').style.display = 'none';
+        document.getElementById('tab-url').click();
+      }
+      openModal(true);
+    });
+  });
+
+  // ---- Delete ----
+  document.querySelectorAll('.btn-delete').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      deleteTargetId = btn.dataset.id || '';
+      document.getElementById('delete-name').textContent = btn.dataset.name || '';
+      deleteModal.style.display = '';
+      document.body.style.overflow = 'hidden';
+    });
+  });
+
+  function closeDelete() {
+    deleteModal.style.display = 'none';
+    document.body.style.overflow = '';
+    deleteTargetId = '';
+  }
+
+  document.getElementById('delete-cancel').addEventListener('click', closeDelete);
+  document.getElementById('delete-backdrop').addEventListener('click', closeDelete);
+
+  document.getElementById('delete-confirm').addEventListener('click', async function() {
+    if (!deleteTargetId) return;
+    var btn = document.getElementById('delete-confirm');
+    btn.innerHTML = '<span class="material-symbols-outlined text-base" style="animation:spin 1s linear infinite">progress_activity</span>';
+    btn.disabled = true;
+
+    await sbFetch('catalogo_productos?id_producto=eq.' + deleteTargetId, 'DELETE');
+    window.location.reload();
+  });
+
+  // ---- Image Upload ----
+  var uploadedImageUrl = '';
+  var fileInput = document.getElementById('form-file');
+  var dropZone = document.getElementById('drop-zone');
+
+  // Click to select file
+  dropZone.addEventListener('click', function() { fileInput.click(); });
+
+  // Drag & drop
+  dropZone.addEventListener('dragover', function(e) { e.preventDefault(); dropZone.classList.add('border-primary/50'); });
+  dropZone.addEventListener('dragleave', function() { dropZone.classList.remove('border-primary/50'); });
+  dropZone.addEventListener('drop', function(e) {
+    e.preventDefault();
+    dropZone.classList.remove('border-primary/50');
+    if (e.dataTransfer.files.length > 0) {
+      fileInput.files = e.dataTransfer.files;
+      handleFileSelected(e.dataTransfer.files[0]);
+    }
+  });
+
+  fileInput.addEventListener('change', function() {
+    if (fileInput.files.length > 0) handleFileSelected(fileInput.files[0]);
+  });
+
+  function handleFileSelected(file) {
+    if (file.size > 5 * 1024 * 1024) {
+      alert('El archivo no debe superar 5MB.');
+      return;
+    }
+    // Show preview
+    document.getElementById('upload-placeholder').style.display = 'none';
+    document.getElementById('upload-preview').style.display = 'flex';
+    document.getElementById('preview-name').textContent = file.name;
+    document.getElementById('preview-size').textContent = (file.size / 1024).toFixed(0) + ' KB';
+    document.getElementById('upload-status').textContent = 'Listo para subir';
+
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      document.getElementById('preview-img').src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  async function uploadImageFile() {
+    var file = fileInput.files[0];
+    if (!file) return null;
+
+    document.getElementById('upload-status').textContent = 'Subiendo...';
+
+    var fd = new FormData();
+    fd.append('file', file);
+    fd.append('proveedor_id', proveedorId);
+
+    try {
+      var res = await fetch('/api/upload-imagen', { method: 'POST', body: fd });
+      var data = await res.json();
+      if (data.url) {
+        document.getElementById('upload-status').textContent = '✓ Subida exitosa';
+        return data.url;
+      } else {
+        document.getElementById('upload-status').textContent = '✗ Error: ' + (data.error || 'desconocido');
+        return null;
+      }
+    } catch (err) {
+      document.getElementById('upload-status').textContent = '✗ Error de red';
+      return null;
+    }
+  }
+
+  // ---- Form Submit (Add / Edit) ----
+  document.getElementById('product-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    var errorDiv = document.getElementById('form-error');
+    var errorText = document.getElementById('form-error-text');
+    var btn = document.getElementById('btn-save');
+
+    var formId = document.getElementById('form-id').value;
+    var name = document.getElementById('form-name').value.trim();
+    var category = document.getElementById('form-category').value.trim();
+    var price = parseFloat(document.getElementById('form-price').value);
+    var stock = parseInt(document.getElementById('form-moq').value) || 0;
+    var materials = document.getElementById('form-materials').value.trim();
+    var description = document.getElementById('form-description').value.trim();
+    var urlInput = document.getElementById('form-image');
+    var imageUrl = urlInput ? urlInput.value.trim() : '';
+
+    if (!name || !category || isNaN(price)) {
+      errorDiv.style.display = 'flex';
+      errorText.textContent = 'Completa todos los campos obligatorios (nombre, categoría, precio).';
+      return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="material-symbols-outlined text-base" style="animation:spin 1s linear infinite">progress_activity</span> Guardando...';
+    errorDiv.style.display = 'none';
+
+    // If there's a file selected, upload it first
+    if (fileInput.files.length > 0) {
+      var uploadUrl = await uploadImageFile();
+      if (uploadUrl) imageUrl = uploadUrl;
+    }
+
+    // Use the hidden final field if set (from edit)
+    var finalImgField = document.getElementById('form-image-final');
+    if (!imageUrl && finalImgField && finalImgField.value) {
+      imageUrl = finalImgField.value;
+    }
+
+    var payload = {
+      nombre_articulo: name,
+      categoria: category,
+      precio_mayorista: price,
+      moq: stock,
+      materiales: materials || null,
+      descripcion: description || null,
+      imagen_url: imageUrl || null,
+      updated_at: new Date().toISOString(),
+    };
+
+    try {
+      if (formId) {
+        await sbFetch('catalogo_productos?id_producto=eq.' + formId, 'PATCH', payload);
+      } else {
+        payload.id_mayorista = proveedorId;
+        payload.created_at = new Date().toISOString();
+        var result = await sbFetch('catalogo_productos', 'POST', payload);
+        console.log('Insert result:', result);
+      }
+      window.location.reload();
+    } catch (err) {
+      console.error('Save error:', err);
+      errorDiv.style.display = 'flex';
+      errorText.textContent = 'Error al guardar: ' + (err.message || 'desconocido');
+      btn.disabled = false;
+      btn.innerHTML = '<span class="material-symbols-outlined text-base">save</span><span>Guardar</span>';
+    }
+  });
+</script>
+
+<style>
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+</style>

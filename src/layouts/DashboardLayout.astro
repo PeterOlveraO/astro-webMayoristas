@@ -2,6 +2,7 @@
 import '../styles/global.css';
 import Navbar from '../components/sections/Navbar.astro';
 import Sidebar from '../components/sections/Sidebar.astro';
+import MobileNav from '../components/sections/MobileNav.astro';
 
 interface Props {
   title: string;
@@ -14,11 +15,12 @@ const { title, activeNav = 'dashboard' } = Astro.props;
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>{title} · Coperativa</title>
+    <meta name="description" content="Portal de Proveedores — DownLabs" />
+    <title>{title} · DownLabs Proveedores</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Inter:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
     <link
@@ -27,10 +29,19 @@ const { title, activeNav = 'dashboard' } = Astro.props;
     />
   </head>
   <body class="bg-surface text-on-surface">
-    <Sidebar activeNav={activeNav} />
-    <div class="ml-64 flex flex-col min-h-screen">
+    <!-- Desktop Sidebar -->
+    <div class="hidden lg:block">
+      <Sidebar activeNav={activeNav} />
+    </div>
+
+    <!-- Mobile Bottom Nav -->
+    <div class="lg:hidden">
+      <MobileNav activeNav={activeNav} />
+    </div>
+
+    <div class="lg:ml-72 flex flex-col min-h-screen">
       <Navbar />
-      <main class="flex-1 p-6 lg:p-10">
+      <main class="flex-1 p-4 sm:p-6 lg:p-10 pb-24 lg:pb-10">
         <slot />
       </main>
     </div>

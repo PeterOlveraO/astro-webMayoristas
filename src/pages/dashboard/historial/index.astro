@@ -1,0 +1,210 @@
+---
+import DashboardLayout from '../../../layouts/DashboardLayout.astro';
+import { supabase } from '../../../db/supabase';
+
+const proveedorId = Astro.cookies.get('proveedor_id')?.value;
+if (!proveedorId) return Astro.redirect('/');
+
+// Get provider's products
+const { data: myProducts } = await supabase
+  .from('catalogo_productos')
+  .select('id_producto')
+  .eq('id_mayorista', proveedorId);
+
+const productIds = myProducts?.map((p: any) => p.id_producto) || [];
+
+let historial: any[] = [];
+let totalAceptadas = 0;
+let totalRechazadas = 0;
+
+if (productIds.length > 0) {
+  const { data } = await supabase
+    .from('cotizaciones_downlabs')
+    .select(`
+      *,
+      catalogo_productos (nombre_articulo, categoria, precio_mayorista, imagen_url),
+      solicitudes_cotizacion (
+        descripcion_articulo,
+        nivel_urgencia,
+        clientes (nombre_empresa)
+      )
+    `)
+    .in('id_producto', productIds)
+    .in('estado', ['aceptada', 'rechazada'])
+    .order('respondido_at', { ascending: false })
+    .order('created_at', { ascending: false });
+  historial = data || [];
+
+  totalAceptadas = historial.filter((c: any) => c.estado === 'aceptada').length;
+  totalRechazadas = historial.filter((c: any) => c.estado === 'rechazada').length;
+}
+
+const total = totalAceptadas + totalRechazadas;
+const tasaAceptacion = total > 0 ? Math.round((totalAceptadas / total) * 100) : 0;
+
+const estadoBadge: Record<string, { classes: string; label: string; icon: string }> = {
+  aceptada:  { classes: 'bg-success/10 text-success border-success/20', label: 'Aceptada', icon: 'check_circle' },
+  rechazada: { classes: 'bg-error/10 text-error border-error/20', label: 'Rechazada', icon: 'cancel' },
+};
+---
+
+<DashboardLayout title="Historial" activeNav="historial">
+  <header class="mb-8">
+    <div>
+      <p class="text-sm font-semibold text-primary uppercase tracking-widest mb-2">Análisis</p>
+      <h1 class="font-headline text-3xl md:text-4xl font-extrabold text-on-surface tracking-tight">
+        Historial de Cotizaciones
+      </h1>
+      <p class="text-on-surface-variant font-body mt-1">Registro de todas las cotizaciones respondidas.</p>
+    </div>
+  </header>
+
+  <!-- Stats Row -->
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+    <div class="glass-card rounded-2xl p-5 animate-slide-up stagger-1" style="opacity:0;">
+      <div class="flex items-center gap-3 mb-3">
+        <div class="w-10 h-10 rounded-xl bg-success/10 flex items-center justify-center">
+          <span class="material-symbols-outlined text-success text-xl">check_circle</span>
+        </div>
+        <div>
+          <p class="text-xs font-semibold text-on-surface-variant uppercase tracking-widest">Aceptadas</p>
+          <p class="text-2xl font-bold text-on-surface font-headline">{totalAceptadas}</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="glass-card rounded-2xl p-5 animate-slide-up stagger-2" style="opacity:0;">
+      <div class="flex items-center gap-3 mb-3">
+        <div class="w-10 h-10 rounded-xl bg-error/10 flex items-center justify-center">
+          <span class="material-symbols-outlined text-error text-xl">cancel</span>
+        </div>
+        <div>
+          <p class="text-xs font-semibold text-on-surface-variant uppercase tracking-widest">Rechazadas</p>
+          <p class="text-2xl font-bold text-on-surface font-headline">{totalRechazadas}</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="glass-card rounded-2xl p-5 animate-slide-up stagger-3" style="opacity:0;">
+      <div class="flex items-center gap-3 mb-3">
+        <div class="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center">
+          <span class="material-symbols-outlined text-accent text-xl">analytics</span>
+        </div>
+        <div>
+          <p class="text-xs font-semibold text-on-surface-variant uppercase tracking-widest">Tasa de Aceptación</p>
+          <div class="flex items-center gap-2">
+            <p class="text-2xl font-bold text-on-surface font-headline">{tasaAceptacion}%</p>
+          </div>
+        </div>
+      </div>
+      <div class="w-full bg-surface-container h-1.5 rounded-full overflow-hidden">
+        <div class="gradient-primary h-full rounded-full transition-all duration-500" style={`width: ${tasaAceptacion}%`}></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filter tabs -->
+  <div class="flex gap-2 mb-6">
+    <button data-filter="all" class="hist-filter active px-4 py-2 rounded-xl text-sm font-semibold bg-primary/10 text-primary border border-primary/20 transition-smooth">
+      Todas ({total})
+    </button>
+    <button data-filter="aceptada" class="hist-filter px-4 py-2 rounded-xl text-sm font-medium bg-surface-container text-on-surface-variant border border-outline-subtle hover:border-success/20 hover:text-success transition-smooth">
+      Aceptadas ({totalAceptadas})
+    </button>
+    <button data-filter="rechazada" class="hist-filter px-4 py-2 rounded-xl text-sm font-medium bg-surface-container text-on-surface-variant border border-outline-subtle hover:border-error/20 hover:text-error transition-smooth">
+      Rechazadas ({totalRechazadas})
+    </button>
+  </div>
+
+  <!-- Historial List -->
+  {historial.length === 0 ? (
+    <div class="glass-card rounded-2xl p-16 text-center">
+      <span class="material-symbols-outlined text-6xl text-on-surface-variant mb-4">history</span>
+      <h3 class="text-xl font-bold text-on-surface mb-2">Sin historial</h3>
+      <p class="text-on-surface-variant">Tus cotizaciones respondidas aparecerán aquí.</p>
+    </div>
+  ) : (
+    <div class="space-y-3" id="historial-list">
+      {historial.map((cot: any, i: number) => {
+        const badge = estadoBadge[cot.estado] || estadoBadge.aceptada;
+        const prod = cot.catalogo_productos;
+        const sol = cot.solicitudes_cotizacion;
+        return (
+          <div
+            class={`historial-item glass-card rounded-xl p-4 sm:p-5 transition-smooth hover-glow animate-slide-up stagger-${Math.min(i + 1, 6)}`}
+            data-estado={cot.estado}
+            style="opacity:0;"
+          >
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div class="flex items-center gap-4 flex-1">
+                <div class="w-14 h-14 rounded-xl bg-surface-container flex items-center justify-center shrink-0 overflow-hidden">
+                  {prod?.imagen_url ? (
+                    <img src={prod.imagen_url} alt="" class="w-full h-full object-cover" />
+                  ) : (
+                    <span class="material-symbols-outlined text-on-surface-variant text-2xl">shopping_bag</span>
+                  )}
+                </div>
+                <div class="min-w-0">
+                  <h4 class="font-bold text-on-surface truncate">{prod?.nombre_articulo || 'Producto'}</h4>
+                  <p class="text-sm text-on-surface-variant">{sol?.clientes?.nombre_empresa || 'Cliente'} · {cot.cantidad} uds</p>
+                  <div class="flex items-center gap-3 mt-1 flex-wrap">
+                    {cot.precio_proveedor_final && (
+                      <span class="text-xs text-on-surface-variant">
+                        Precio final: <span class="text-primary font-semibold">${Number(cot.precio_proveedor_final).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
+                      </span>
+                    )}
+                    {cot.tiempo_entrega_dias && (
+                      <span class="text-xs text-on-surface-variant">Entrega: {cot.tiempo_entrega_dias} días</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div class="flex items-center gap-3 shrink-0">
+                <span class={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border ${badge.classes}`}>
+                  <span class="material-symbols-outlined text-xs">{badge.icon}</span>
+                  {badge.label}
+                </span>
+                <span class="text-xs text-on-surface-variant">
+                  {cot.respondido_at
+                    ? new Date(cot.respondido_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })
+                    : new Date(cot.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short' })
+                  }
+                </span>
+              </div>
+            </div>
+
+            {cot.notas_proveedor && (
+              <div class="mt-3 p-3 rounded-lg bg-surface-container text-xs text-on-surface-variant">
+                <span class="font-semibold">Tu nota:</span> {cot.notas_proveedor}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  )}
+</DashboardLayout>
+
+<script>
+  document.querySelectorAll('.hist-filter').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.hist-filter').forEach(b => {
+        b.classList.remove('bg-primary/10', 'text-primary', 'border-primary/20');
+        b.classList.add('bg-surface-container', 'text-on-surface-variant', 'border-outline-subtle');
+      });
+      btn.classList.remove('bg-surface-container', 'text-on-surface-variant', 'border-outline-subtle');
+      btn.classList.add('bg-primary/10', 'text-primary', 'border-primary/20');
+
+      const filter = (btn as HTMLElement).dataset.filter;
+      document.querySelectorAll('.historial-item').forEach(item => {
+        const el = item as HTMLElement;
+        if (filter === 'all' || el.dataset.estado === filter) {
+          el.style.display = '';
+        } else {
+          el.style.display = 'none';
+        }
+      });
+    });
+  });
+</script>
