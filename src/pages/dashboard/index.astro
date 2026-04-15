@@ -1,0 +1,190 @@
+---
+import DashboardLayout from '../../layouts/DashboardLayout.astro';
+import { pedidos } from '../../data/pedidos';
+
+const pendientes = pedidos.filter(p => p.estado === 'pendiente').length;
+const confirmados = pedidos.filter(p => p.estado === 'confirmado' || p.estado === 'enviado').length;
+const porEnviar = pedidos.filter(p => p.estado === 'confirmado').length;
+
+const recientes = pedidos.slice(0, 3);
+
+const estadoBadge: Record<string, { bg: string; text: string; label: string }> = {
+  pendiente:  { bg: 'bg-secondary-container', text: 'text-on-secondary-container', label: 'Pendiente' },
+  confirmado: { bg: 'bg-primary-fixed',        text: 'text-primary',                label: 'Confirmado' },
+  rechazado:  { bg: 'bg-error-container',      text: 'text-on-error-container',     label: 'Rechazado'  },
+  enviado:    { bg: 'bg-secondary-container',  text: 'text-secondary',              label: 'Enviado'    },
+};
+---
+
+<DashboardLayout title="Dashboard" activeNav="dashboard">
+  <!-- Header -->
+  <header class="mb-10">
+    <h1 class="font-headline text-4xl md:text-5xl font-extrabold text-on-surface tracking-tighter mb-2">
+      Dashboard Mayorista
+    </h1>
+    <p class="text-on-surface-variant font-body">Bienvenido al centro de operaciones de Coperativa.</p>
+  </header>
+
+  <!-- Metric Cards -->
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+    <!-- Nuevas Solicitudes -->
+    <div class="bg-surface-container-lowest p-8 rounded-xl relative overflow-hidden group">
+      <div class="relative z-10">
+        <p class="text-sm font-label font-semibold text-secondary uppercase tracking-widest mb-1">Nuevas Solicitudes</p>
+        <h2 class="font-headline text-5xl font-bold text-on-surface mb-4">{String(pendientes).padStart(2, '0')}</h2>
+        <div class="flex items-center gap-2 text-secondary text-sm font-medium">
+          <span class="material-symbols-outlined text-sm">trending_up</span>
+          <span>+12% vs ayer</span>
+        </div>
+      </div>
+      <div class="absolute -right-4 -bottom-4 opacity-5 group-hover:opacity-10 transition-opacity">
+        <span class="material-symbols-outlined text-9xl">pending_actions</span>
+      </div>
+    </div>
+
+    <!-- Pedidos Confirmados -->
+    <div class="bg-surface-container-low p-8 rounded-xl relative overflow-hidden group">
+      <div class="relative z-10">
+        <p class="text-sm font-label font-semibold text-primary uppercase tracking-widest mb-1">Pedidos Confirmados</p>
+        <h2 class="font-headline text-5xl font-bold text-on-surface mb-4">{confirmados}</h2>
+        <div class="flex items-center gap-2 text-primary text-sm font-medium">
+          <span class="material-symbols-outlined text-sm">check_circle</span>
+          <span>89% completado</span>
+        </div>
+      </div>
+      <div class="absolute -right-4 -bottom-4 opacity-5 group-hover:opacity-10 transition-opacity text-primary">
+        <span class="material-symbols-outlined text-9xl">task_alt</span>
+      </div>
+    </div>
+
+    <!-- Pendientes de Envío -->
+    <div class="bg-surface-container-high p-8 rounded-xl relative overflow-hidden group">
+      <div class="relative z-10">
+        <p class="text-sm font-label font-semibold text-tertiary uppercase tracking-widest mb-1">Pendientes de Envío</p>
+        <h2 class="font-headline text-5xl font-bold text-on-surface mb-4">{String(porEnviar).padStart(2, '0')}</h2>
+        <div class="flex items-center gap-2 text-tertiary text-sm font-medium">
+          <span class="material-symbols-outlined text-sm">schedule</span>
+          <span>Prioridad alta</span>
+        </div>
+      </div>
+      <div class="absolute -right-4 -bottom-4 opacity-5 group-hover:opacity-10 transition-opacity text-tertiary">
+        <span class="material-symbols-outlined text-9xl">local_shipping</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Grid -->
+  <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+    <!-- Recent Order Requests -->
+    <div class="lg:col-span-8">
+      <div class="flex justify-between items-end mb-6">
+        <h3 class="font-headline text-2xl font-bold text-on-surface">Solicitudes Recientes</h3>
+        <a href="/dashboard/pedidos" class="text-primary font-semibold text-sm hover:underline">Ver todo</a>
+      </div>
+      <div class="space-y-4">
+        {recientes.map((pedido) => {
+          const badge = estadoBadge[pedido.estado];
+          return (
+            <a
+              href={`/dashboard/pedidos/${pedido.id}`}
+              class="bg-surface-container-lowest p-6 rounded-xl flex items-center justify-between group hover:shadow-lg transition-all duration-300"
+            >
+              <div class="flex items-center gap-6">
+                <div class="w-14 h-14 bg-surface-container-low rounded-xl flex items-center justify-center group-hover:bg-primary-container group-hover:text-on-primary-container transition-colors">
+                  <span class="material-symbols-outlined">shopping_cart</span>
+                </div>
+                <div>
+                  <h4 class="font-bold text-on-surface text-lg">{pedido.numero}</h4>
+                  <p class="text-on-surface-variant text-sm">
+                    {pedido.empresa} · {pedido.productos.reduce((s, p) => s + p.cantidad, 0)} unidades · ${pedido.total.toLocaleString('es-MX', {minimumFractionDigits: 2})}
+                  </p>
+                </div>
+              </div>
+              <div class="text-right">
+                <span class={`block text-xs font-semibold uppercase tracking-widest mb-2 px-3 py-1 rounded-full ${badge.bg} ${badge.text}`}>
+                  {badge.label}
+                </span>
+                <span class="text-on-surface-variant text-xs font-medium">{pedido.fecha}</span>
+              </div>
+            </a>
+          );
+        })}
+      </div>
+    </div>
+
+    <!-- Action Panel -->
+    <div class="lg:col-span-4">
+      <div class="bg-primary text-white p-8 rounded-xl h-full flex flex-col justify-between relative overflow-hidden">
+        <div class="relative z-10">
+          <h3 class="font-headline text-3xl font-bold mb-4 leading-tight">Gestiona tus Pedidos</h3>
+          <p class="text-on-primary-container font-body text-sm mb-8 opacity-90">
+            Revisa, confirma o rechaza las solicitudes de pedido de tus operadores de manera rápida.
+          </p>
+          <div class="space-y-6">
+            <div class="flex gap-4">
+              <div class="bg-white/10 p-2 rounded-lg h-fit">
+                <span class="material-symbols-outlined">check_circle</span>
+              </div>
+              <div>
+                <p class="text-xs font-label uppercase tracking-widest opacity-70">Confirmados hoy</p>
+                <p class="text-sm font-semibold">{confirmados} pedidos</p>
+              </div>
+            </div>
+            <div class="flex gap-4">
+              <div class="bg-white/10 p-2 rounded-lg h-fit">
+                <span class="material-symbols-outlined">local_shipping</span>
+              </div>
+              <div>
+                <p class="text-xs font-label uppercase tracking-widest opacity-70">Por despachar</p>
+                <p class="text-sm font-semibold">{porEnviar} pendientes</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <a
+          href="/dashboard/pedidos"
+          class="relative z-10 mt-12 bg-surface-container-lowest text-primary py-4 px-6 rounded-xl font-bold hover:scale-[1.02] transition-transform flex justify-center items-center gap-2 group"
+        >
+          Ver Solicitudes
+          <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">arrow_forward</span>
+        </a>
+        <div class="absolute -right-20 -top-20 w-64 h-64 bg-primary-container rounded-full blur-[80px] opacity-30"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Warehouse Status -->
+  <section class="mt-12">
+    <h3 class="font-headline text-2xl font-bold text-on-surface mb-6">Estado de Almacén</h3>
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-6">
+      <div class="bg-surface-container-low p-6 rounded-xl">
+        <p class="text-xs font-label uppercase tracking-widest text-on-surface-variant mb-4">Capacidad Total</p>
+        <div class="w-full bg-surface-variant h-1 rounded-full overflow-hidden mb-2">
+          <div class="bg-secondary h-full w-[72%]"></div>
+        </div>
+        <p class="text-xl font-bold font-headline">72% <span class="text-sm font-normal text-on-surface-variant">Ocupado</span></p>
+      </div>
+      <div class="bg-surface-container-low p-6 rounded-xl">
+        <p class="text-xs font-label uppercase tracking-widest text-on-surface-variant mb-4">Retornos Semanales</p>
+        <div class="w-full bg-surface-variant h-1 rounded-full overflow-hidden mb-2">
+          <div class="bg-error h-full w-[4%]"></div>
+        </div>
+        <p class="text-xl font-bold font-headline">4.2% <span class="text-sm font-normal text-on-surface-variant">Tasa error</span></p>
+      </div>
+      <div class="bg-surface-container-low p-6 rounded-xl">
+        <p class="text-xs font-label uppercase tracking-widest text-on-surface-variant mb-4">Eficiencia Carga</p>
+        <div class="w-full bg-surface-variant h-1 rounded-full overflow-hidden mb-2">
+          <div class="bg-primary h-full w-[94%]"></div>
+        </div>
+        <p class="text-xl font-bold font-headline">94% <span class="text-sm font-normal text-on-surface-variant">Óptimo</span></p>
+      </div>
+      <div class="bg-surface-container-low p-6 rounded-xl">
+        <p class="text-xs font-label uppercase tracking-widest text-on-surface-variant mb-4">Nuevos SKU</p>
+        <div class="w-full bg-surface-variant h-1 rounded-full overflow-hidden mb-2">
+          <div class="bg-tertiary h-full w-[15%]"></div>
+        </div>
+        <p class="text-xl font-bold font-headline">+18 <span class="text-sm font-normal text-on-surface-variant">Este mes</span></p>
+      </div>
+    </div>
+  </section>
+</DashboardLayout>

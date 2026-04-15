@@ -1,0 +1,234 @@
+---
+import DashboardLayout from '../../../layouts/DashboardLayout.astro';
+import { pedidos } from '../../../data/pedidos';
+
+export function getStaticPaths() {
+  return pedidos.map(p => ({ params: { id: p.id } }));
+}
+
+const { id } = Astro.params;
+const pedido = pedidos.find(p => p.id === id)!;
+---
+
+<DashboardLayout title={`Despacho ${pedido.numero}`} activeNav="pedidos">
+  <div class="max-w-5xl mx-auto">
+
+    <!-- Back + Header -->
+    <div class="mb-10">
+      <a href={`/dashboard/pedidos/${pedido.id}`} class="flex items-center gap-2 text-secondary text-sm font-semibold hover:underline mb-4">
+        <span class="material-symbols-outlined text-sm">arrow_back</span>
+        Volver al Pedido
+      </a>
+      <h1 class="font-headline text-4xl md:text-5xl font-extrabold text-on-surface tracking-tighter mb-4">
+        Envío del Pedido
+      </h1>
+      <p class="text-on-surface-variant font-body max-w-2xl leading-relaxed">
+        Actualiza el estado del pedido <span class="font-bold text-primary">{pedido.numero}</span>.
+        Ingresa los detalles logísticos para notificar al cliente sobre el despacho de su mercancía.
+      </p>
+    </div>
+
+    <!-- Bento Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+      <!-- Main Shipping Form -->
+      <div class="lg:col-span-8 bg-surface-container-lowest rounded-xl p-8 shadow-sm">
+        <h2 class="text-xl font-bold mb-8 flex items-center gap-2">
+          <span class="material-symbols-outlined text-primary">local_shipping</span>
+          Detalles del Despacho
+        </h2>
+
+        <div class="space-y-8">
+          <!-- Tracking Number -->
+          <div class="group">
+            <label class="block text-sm font-semibold text-on-surface-variant mb-2 ml-1" for="tracking_number">
+              Número de Seguimiento (Tracking)
+            </label>
+            <div class="relative">
+              <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                <span class="material-symbols-outlined text-outline">barcode_scanner</span>
+              </div>
+              <input
+                id="tracking_number"
+                type="text"
+                placeholder="Ej: FDX-992837482"
+                class="block w-full pl-12 pr-4 py-4 bg-surface-container-high border-none rounded-xl focus:ring-2 focus:ring-primary/40 text-on-surface font-body transition-all placeholder:text-outline/60"
+              />
+            </div>
+            <p class="mt-2 text-xs text-outline ml-1">
+              Este número será enviado automáticamente al comprador.
+            </p>
+          </div>
+
+          <!-- Carrier Selection -->
+          <div>
+            <label class="block text-sm font-semibold text-on-surface-variant mb-3 ml-1">
+              Empresa Logística
+            </label>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3" id="carriers">
+              {[
+                { id: 'dhl',   icon: 'local_shipping', label: 'DHL Express' },
+                { id: 'fedex', icon: 'package_2',       label: 'FedEx Corp'  },
+                { id: 'ups',   icon: 'flight',          label: 'UPS Air'     },
+                { id: 'other', icon: 'more_horiz',      label: 'Otro'        },
+              ].map(carrier => (
+                <button
+                  data-carrier={carrier.id}
+                  class="carrier-btn flex flex-col items-center justify-center p-4 rounded-xl bg-surface-container-low border-2 border-transparent hover:border-primary/20 transition-all group"
+                >
+                  <span class="material-symbols-outlined text-3xl mb-2 text-outline group-hover:text-primary">{carrier.icon}</span>
+                  <span class="text-xs font-bold">{carrier.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <!-- Estimated delivery date -->
+          <div>
+            <label class="block text-sm font-semibold text-on-surface-variant mb-2 ml-1" for="delivery_date">
+              Fecha Estimada de Entrega
+            </label>
+            <div class="relative">
+              <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                <span class="material-symbols-outlined text-outline">calendar_today</span>
+              </div>
+              <input
+                id="delivery_date"
+                type="date"
+                class="block w-full pl-12 pr-4 py-4 bg-surface-container-high border-none rounded-xl focus:ring-2 focus:ring-primary/40 text-on-surface font-body transition-all"
+              />
+            </div>
+          </div>
+
+          <!-- Internal Notes -->
+          <div>
+            <label class="block text-sm font-semibold text-on-surface-variant mb-2 ml-1" for="dispatch_notes">
+              Notas Internas de Despacho <span class="font-normal text-outline">(opcional)</span>
+            </label>
+            <textarea
+              id="dispatch_notes"
+              rows="3"
+              placeholder="Instrucciones especiales para el transportista, etc."
+              class="block w-full px-4 py-3 bg-surface-container-high border-none rounded-xl focus:ring-2 focus:ring-primary/40 text-on-surface text-sm placeholder:text-outline/60 resize-none"
+            ></textarea>
+          </div>
+
+          <!-- Submit Button -->
+          <div class="pt-4">
+            <button
+              id="btn-ship"
+              class="w-full py-5 px-8 rounded-xl bg-gradient-to-br from-primary to-primary-container text-on-primary font-bold text-lg shadow-lg hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-3"
+            >
+              <span class="material-symbols-outlined">verified</span>
+              Marcar como Enviado
+            </button>
+            <p class="text-center mt-4 text-sm text-outline">
+              Al confirmar, el estado del pedido se actualizará a "Enviado" y se notificará al cliente.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Side Panel -->
+      <div class="lg:col-span-4 space-y-6">
+        <!-- Order Summary -->
+        <div class="bg-surface-container-low rounded-xl p-6">
+          <h3 class="font-bold text-on-surface mb-4 border-b border-outline-variant/15 pb-2">
+            Resumen del Pedido
+          </h3>
+          <div class="space-y-4">
+            <div class="flex justify-between items-start">
+              <div>
+                <p class="text-xs text-on-surface-variant font-semibold uppercase tracking-wide">Cliente</p>
+                <p class="text-sm font-medium">{pedido.empresa}</p>
+              </div>
+              <span class="bg-secondary-container text-on-secondary-container text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">
+                Confirmado
+              </span>
+            </div>
+            <div>
+              <p class="text-xs text-on-surface-variant font-semibold uppercase tracking-wide">Destino</p>
+              <p class="text-sm leading-relaxed">{pedido.direccion}</p>
+            </div>
+            <div>
+              <p class="text-xs text-on-surface-variant font-semibold uppercase tracking-wide">Artículos</p>
+              <p class="text-sm">{pedido.productos.reduce((s, p) => s + p.cantidad, 0)} unidades en {pedido.productos.length} producto(s)</p>
+            </div>
+            <div class="pt-4 mt-2 border-t border-outline-variant/15">
+              <div class="flex justify-between text-lg font-bold text-primary">
+                <span>Total</span>
+                <span>${pedido.total.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Support Card -->
+        <div class="bg-primary text-on-primary rounded-xl p-6 flex flex-col justify-between min-h-[180px] relative overflow-hidden">
+          <div class="relative z-10">
+            <p class="text-xs font-bold uppercase tracking-widest opacity-80 mb-1">Soporte Logístico</p>
+            <h4 class="text-lg font-bold leading-tight mb-2">¿Necesitas ayuda con el flete?</h4>
+            <p class="text-sm opacity-80 mb-4">Contacta a nuestro equipo de logística para asistencia especializada.</p>
+            <a href="#" class="inline-flex items-center gap-1 text-sm font-semibold hover:underline">
+              Contactar agente
+              <span class="material-symbols-outlined text-sm">open_in_new</span>
+            </a>
+          </div>
+          <div class="absolute -right-8 -bottom-8 w-32 h-32 bg-primary-container rounded-full blur-3xl opacity-40"></div>
+        </div>
+
+        <!-- Articles Preview -->
+        <div class="bg-surface-container-low rounded-xl p-6">
+          <h3 class="font-bold text-on-surface mb-4">Artículos en este Envío</h3>
+          <div class="space-y-3">
+            {pedido.productos.map(prod => (
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-surface-container-high rounded-lg flex items-center justify-center flex-shrink-0">
+                  <span class="material-symbols-outlined text-sm text-outline">package_2</span>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <p class="text-xs font-semibold text-on-surface truncate">{prod.nombre}</p>
+                  <p class="text-xs text-on-surface-variant">Cant: {prod.cantidad} uds.</p>
+                </div>
+                <span class="text-xs font-bold text-primary">
+                  ${(prod.precio * prod.cantidad).toLocaleString('es-MX', { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</DashboardLayout>
+
+<script>
+  // Carrier selection
+  const carrierBtns = document.querySelectorAll<HTMLButtonElement>('.carrier-btn');
+  carrierBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      carrierBtns.forEach(b => {
+        b.classList.remove('border-primary', 'bg-surface-bright', 'text-primary', 'shadow-sm');
+        b.classList.add('border-transparent', 'bg-surface-container-low');
+        const icon = b.querySelector('.material-symbols-outlined');
+        if (icon) { icon.classList.remove('text-primary'); icon.classList.add('text-outline'); }
+      });
+      btn.classList.add('border-primary', 'bg-surface-bright', 'text-primary', 'shadow-sm');
+      btn.classList.remove('border-transparent', 'bg-surface-container-low');
+      const icon = btn.querySelector('.material-symbols-outlined');
+      if (icon) { icon.classList.add('text-primary'); icon.classList.remove('text-outline'); }
+    });
+  });
+
+  // Submit
+  const btnShip = document.getElementById('btn-ship');
+  btnShip?.addEventListener('click', () => {
+    const tracking = (document.getElementById('tracking_number') as HTMLInputElement).value.trim();
+    if (!tracking) {
+      alert('Por favor ingresa el número de seguimiento.');
+      return;
+    }
+    // Simulate action and redirect
+    window.location.href = '/dashboard/pedidos?enviado=true';
+  });
+</script>

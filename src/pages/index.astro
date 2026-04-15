@@ -1,49 +1,115 @@
 ---
-import BaseHead from '../components/BaseHead.astro';
-import Footer from '../components/Footer.astro';
-import Header from '../components/Header.astro';
-import { SITE_DESCRIPTION, SITE_TITLE } from '../consts';
+import BaseLayout from '../layouts/BaseLayout.astro';
+import GoogleIcon from '../components/icons/GoogleIcon.astro';
 ---
 
-<!doctype html>
-<html lang="en">
-	<head>
-		<BaseHead title={SITE_TITLE} description={SITE_DESCRIPTION} />
-	</head>
-	<body>
-		<Header />
-		<main>
-			<h1>🧑‍🚀 Hello, Astronaut!</h1>
-			<p>
-				Welcome to the official <a href="https://astro.build/">Astro</a> blog starter template. This template
-				serves as a lightweight, minimally-styled starting point for anyone looking to build a personal
-				website, blog, or portfolio with Astro.
-			</p>
-			<p>
-				This template comes with a few integrations already configured in your
-				<code>astro.config.mjs</code> file. You can customize your setup with
-				<a href="https://astro.build/integrations">Astro Integrations</a> to add tools like Tailwind,
-				React, or Vue to your project.
-			</p>
-			<p>Here are a few ideas on how to get started with the template:</p>
-			<ul>
-				<li>Edit this page in <code>src/pages/index.astro</code></li>
-				<li>Edit the site header items in <code>src/components/Header.astro</code></li>
-				<li>Add your name to the footer in <code>src/components/Footer.astro</code></li>
-				<li>Check out the included blog posts in <code>src/content/blog/</code></li>
-				<li>Customize the blog post page layout in <code>src/layouts/BlogPost.astro</code></li>
-			</ul>
-			<p>
-				Have fun! If you get stuck, remember to
-				<a href="https://docs.astro.build/">read the docs</a>
-				or <a href="https://astro.build/chat">join us on Discord</a> to ask questions.
-			</p>
-			<p>
-				Looking for a blog template with a bit more personality? Check out
-				<a href="https://github.com/Charca/astro-blog-template">astro-blog-template</a>
-				by <a href="https://twitter.com/Charca">Maxi Ferreira</a>.
-			</p>
-		</main>
-		<Footer />
-	</body>
-</html>
+<BaseLayout title="Login · Coperativa">
+  <div
+    class="min-h-screen bg-background-light flex items-center justify-center p-4 font-display"
+    style="--color-primary: #002466"
+  >
+    <div class="w-full max-w-[440px] bg-white rounded-xl shadow-2xl flex flex-col overflow-hidden border border-slate-200">
+
+      <div class="p-8 pb-0">
+        <div class="flex flex-col gap-2 mb-8">
+          <div class="flex items-center gap-2 text-primary mb-2">
+            <span class="material-symbols-outlined text-4xl">account_balance</span>
+            <span class="text-2xl font-black tracking-tight">COPERATIVA</span>
+          </div>
+          <h3 class="text-slate-900 text-2xl font-bold leading-tight">Bienvenido de nuevo</h3>
+          <p class="text-slate-500 text-sm">Ingresa tus credenciales para acceder a tu panel.</p>
+        </div>
+
+        <div class="flex flex-col gap-5">
+          <!-- Correo electrónico -->
+          <div class="flex flex-col gap-2">
+            <label class="text-slate-700 text-sm font-semibold">Correo electrónico</label>
+            <div class="relative group">
+              <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 group-focus-within:text-primary">
+                <span class="material-symbols-outlined text-xl">mail</span>
+              </div>
+              <input
+                id="email"
+                type="email"
+                placeholder="nombre@empresa.com"
+                class="block w-full pl-10 pr-3 py-3 border border-slate-200 rounded-lg bg-slate-50 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
+              />
+            </div>
+          </div>
+
+          <!-- Contraseña -->
+          <div class="flex flex-col gap-2">
+            <label class="text-slate-700 text-sm font-semibold">Contraseña</label>
+            <div class="relative group">
+              <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 group-focus-within:text-primary">
+                <span class="material-symbols-outlined text-xl">lock</span>
+              </div>
+              <input
+                id="password"
+                type="password"
+                placeholder="••••••••"
+                class="block w-full pl-10 pr-10 py-3 border border-slate-200 rounded-lg bg-slate-50 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm"
+              />
+              <button id="toggle-pwd" type="button" class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600">
+                <span id="eye-icon" class="material-symbols-outlined text-xl">visibility</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Recordarme + Olvidaste contraseña -->
+          <div class="flex items-center justify-between py-1">
+            <label class="flex items-center gap-2 cursor-pointer group">
+              <input
+                type="checkbox"
+                class="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary focus:ring-offset-0 bg-white"
+              />
+              <span class="text-sm text-slate-600 group-hover:text-slate-900">Recordarme</span>
+            </label>
+            <a href="#" class="text-sm font-semibold text-primary hover:underline">¿Olvidaste tu contraseña?</a>
+          </div>
+
+          <!-- Botón iniciar sesión -->
+          <a
+            href="/dashboard"
+            class="w-full bg-primary hover:bg-primary/90 text-white font-bold py-3.5 rounded-lg transition-colors shadow-lg shadow-primary/20 flex items-center justify-center gap-2 mt-2"
+          >
+            <span>Iniciar Sesión</span>
+            <span class="material-symbols-outlined text-lg">login</span>
+          </a>
+        </div>
+      </div>
+
+      <div class="p-8 pt-6">
+        <div class="relative flex py-2 items-center">
+          <div class="flex-grow border-t border-slate-200"></div>
+          <span class="flex-shrink mx-4 text-slate-400 text-xs font-medium uppercase tracking-wider">O accede con</span>
+          <div class="flex-grow border-t border-slate-200"></div>
+        </div>
+
+        <button class="w-full flex items-center justify-center gap-3 py-3 px-4 border border-slate-200 rounded-lg hover:bg-slate-50 transition-all mt-6 group">
+          <GoogleIcon />
+          <span class="text-sm font-semibold text-slate-700">Continuar con Google</span>
+        </button>
+      </div>
+
+      <div class="mt-auto bg-slate-50 p-6 border-t border-slate-100 text-center">
+        <p class="text-sm text-slate-600">
+          ¿No tienes una cuenta? <a href="#" class="text-primary font-bold hover:underline">Regístrate</a>
+        </p>
+      </div>
+
+    </div>
+  </div>
+</BaseLayout>
+
+<script>
+  const toggleBtn = document.getElementById('toggle-pwd');
+  const passwordInput = document.getElementById('password') as HTMLInputElement;
+  const eyeIcon = document.getElementById('eye-icon');
+
+  toggleBtn?.addEventListener('click', () => {
+    const isPassword = passwordInput.type === 'password';
+    passwordInput.type = isPassword ? 'text' : 'password';
+    if (eyeIcon) eyeIcon.textContent = isPassword ? 'visibility_off' : 'visibility';
+  });
+</script>

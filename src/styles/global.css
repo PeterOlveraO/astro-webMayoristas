@@ -1,141 +1,85 @@
-/*
-  The CSS in this style tag is based off of Bear Blog's default CSS.
-  https://github.com/HermanMartinus/bearblog/blob/297026a877bc2ab2b3bdfbd6b9f7961c350917dd/templates/styles/blog/default.css
-  License MIT: https://github.com/HermanMartinus/bearblog/blob/master/LICENSE.md
- */
+@import "tailwindcss";
 
-:root {
-	--accent: #2337ff;
-	--accent-dark: #000d8a;
-	--black: 15, 18, 25;
-	--gray: 96, 115, 159;
-	--gray-light: 229, 233, 240;
-	--gray-dark: 34, 41, 57;
-	--gray-gradient: rgba(var(--gray-light), 50%), #fff;
-	--box-shadow:
-		0 2px 6px rgba(var(--gray), 25%), 0 8px 24px rgba(var(--gray), 33%),
-		0 16px 32px rgba(var(--gray), 33%);
+@theme {
+  /* --- Brand Colors (Material Design 3) --- */
+  --color-primary: #004d75;
+  --color-primary-container: #006699;
+  --color-on-primary: #ffffff;
+  --color-on-primary-container: #bfe0ff;
+  --color-on-primary-fixed: #001e31;
+  --color-on-primary-fixed-variant: #004b72;
+  --color-primary-fixed: #cce5ff;
+  --color-primary-fixed-dim: #90cdff;
+
+  --color-secondary: #006a62;
+  --color-secondary-container: #81f3e5;
+  --color-on-secondary: #ffffff;
+  --color-on-secondary-container: #006f66;
+  --color-on-secondary-fixed: #00201d;
+  --color-on-secondary-fixed-variant: #005049;
+  --color-secondary-fixed: #84f5e8;
+  --color-secondary-fixed-dim: #66d9cc;
+
+  --color-tertiary: #6d3d00;
+  --color-tertiary-container: #8f5201;
+  --color-on-tertiary: #ffffff;
+  --color-on-tertiary-container: #ffd5b0;
+  --color-on-tertiary-fixed: #2d1600;
+  --color-on-tertiary-fixed-variant: #6a3b00;
+  --color-tertiary-fixed: #ffdcbf;
+  --color-tertiary-fixed-dim: #ffb873;
+
+  --color-error: #ba1a1a;
+  --color-error-container: #ffdad6;
+  --color-on-error: #ffffff;
+  --color-on-error-container: #93000a;
+
+  --color-surface: #f9f9fc;
+  --color-surface-bright: #f9f9fc;
+  --color-surface-dim: #dadadc;
+  --color-surface-variant: #e2e2e5;
+  --color-surface-container: #eeeef0;
+  --color-surface-container-low: #f3f3f6;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-high: #e8e8ea;
+  --color-surface-container-highest: #e2e2e5;
+  --color-surface-tint: #006496;
+
+  --color-on-surface: #1a1c1e;
+  --color-on-surface-variant: #40484f;
+  --color-on-background: #1a1c1e;
+  --color-background: #f9f9fc;
+  --color-background-light: #f0f4f8;
+
+  --color-outline: #707880;
+  --color-outline-variant: #c0c7d0;
+
+  --color-inverse-surface: #2f3133;
+  --color-inverse-on-surface: #f0f0f3;
+  --color-inverse-primary: #90cdff;
+
+  /* --- Font Families --- */
+  --font-headline: "Manrope", sans-serif;
+  --font-display: "Manrope", sans-serif;
+  --font-body: "Inter", sans-serif;
+  --font-label: "Inter", sans-serif;
+
+  /* --- Border Radius --- */
+  --radius-DEFAULT: 0.125rem;
+  --radius-lg: 0.25rem;
+  --radius-xl: 0.5rem;
 }
+
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+
 body {
-	font-family: var(--font-atkinson);
-	margin: 0;
-	padding: 0;
-	text-align: left;
-	background: linear-gradient(var(--gray-gradient)) no-repeat;
-	background-size: 100% 600px;
-	word-wrap: break-word;
-	overflow-wrap: break-word;
-	color: rgb(var(--gray-dark));
-	font-size: 20px;
-	line-height: 1.7;
-}
-main {
-	width: 720px;
-	max-width: calc(100% - 2em);
-	margin: auto;
-	padding: 3em 1em;
-}
-h1,
-h2,
-h3,
-h4,
-h5,
-h6 {
-	margin: 0 0 0.5rem 0;
-	color: rgb(var(--black));
-	line-height: 1.2;
-}
-h1 {
-	font-size: 3.052em;
-}
-h2 {
-	font-size: 2.441em;
-}
-h3 {
-	font-size: 1.953em;
-}
-h4 {
-	font-size: 1.563em;
-}
-h5 {
-	font-size: 1.25em;
-}
-strong,
-b {
-	font-weight: 700;
-}
-a {
-	color: var(--accent);
-}
-a:hover {
-	color: var(--accent);
-}
-p {
-	margin-bottom: 1em;
-}
-.prose p {
-	margin-bottom: 2em;
-}
-textarea {
-	width: 100%;
-	font-size: 16px;
-}
-input {
-	font-size: 16px;
-}
-table {
-	width: 100%;
-}
-img {
-	max-width: 100%;
-	height: auto;
-	border-radius: 8px;
-}
-code {
-	padding: 2px 5px;
-	background-color: rgb(var(--gray-light));
-	border-radius: 2px;
-}
-pre {
-	padding: 1.5em;
-	border-radius: 8px;
-}
-pre > code {
-	all: unset;
-}
-blockquote {
-	border-left: 4px solid var(--accent);
-	padding: 0 0 0 20px;
-	margin: 0;
-	font-size: 1.333em;
-}
-hr {
-	border: none;
-	border-top: 1px solid rgb(var(--gray-light));
-}
-@media (max-width: 720px) {
-	body {
-		font-size: 18px;
-	}
-	main {
-		padding: 1em;
-	}
+  font-family: "Inter", sans-serif;
+  background-color: #f9f9fc;
+  color: #1a1c1e;
 }
 
-.sr-only {
-	border: 0;
-	padding: 0;
-	margin: 0;
-	position: absolute !important;
-	height: 1px;
-	width: 1px;
-	overflow: hidden;
-	/* IE6, IE7 - a 0 height clip, off to the bottom right of the visible 1px box */
-	clip: rect(1px 1px 1px 1px);
-	/* maybe deprecated but we need to support legacy browsers */
-	clip: rect(1px, 1px, 1px, 1px);
-	/* modern browsers, clip-path works inwards from each corner */
-	clip-path: inset(50%);
-	/* added line to stop words getting smushed together (as they go onto separate lines and some screen readers do not understand line feeds as a space */
-	white-space: nowrap;
+h1, h2, h3 {
+  font-family: "Manrope", sans-serif;
 }
