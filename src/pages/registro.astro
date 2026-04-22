@@ -1,5 +1,7 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
+const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:5145';
+
 ---
 
 <BaseLayout title="Registro · DownLabs Proveedores">
@@ -79,14 +81,14 @@ import BaseLayout from '../layouts/BaseLayout.astro';
               </div>
             </div>
 
-            <!-- Operador -->
+            <!-- Operador 
             <div class="flex flex-col gap-1.5">
               <label class="text-on-surface-variant text-sm font-semibold">Nombre del Operador *</label>
               <div class="relative">
                 <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg">person</span>
                 <input id="reg-operador" type="text" required placeholder="Ej: Juan Pérez" class="w-full pl-10 pr-4 py-3 bg-surface-container border border-outline-subtle rounded-xl text-sm text-on-surface placeholder-on-surface-variant focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/20 transition-smooth" />
               </div>
-            </div>
+            </div>-->
 
             <div class="border-t border-outline-subtle"></div>
             <p class="text-[10px] font-semibold text-on-surface-variant uppercase tracking-[0.2em] -mb-2">Credenciales de Acceso</p>
@@ -156,7 +158,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     var nombreEmpresa = document.getElementById('reg-empresa').value.trim();
     var rfc = document.getElementById('reg-rfc').value.trim().toUpperCase();
     var direccion = document.getElementById('reg-direccion').value.trim();
-    var operador = document.getElementById('reg-operador').value.trim();
+    //var operador = document.getElementById('reg-operador').value.trim();
     var email = document.getElementById('reg-email').value.trim();
     var password = document.getElementById('reg-password').value;
     var password2 = document.getElementById('reg-password2').value;
@@ -169,7 +171,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     if (!nombreEmpresa) { errorDiv.style.display = 'flex'; errorText.textContent = 'Ingresa el nombre de tu empresa.'; return; }
     if (!rfc || rfc.length < 12) { errorDiv.style.display = 'flex'; errorText.textContent = 'Ingresa un RFC válido (12-13 caracteres).'; return; }
     if (!direccion) { errorDiv.style.display = 'flex'; errorText.textContent = 'Ingresa la dirección fiscal.'; return; }
-    if (!operador) { errorDiv.style.display = 'flex'; errorText.textContent = 'Ingresa el nombre del operador.'; return; }
+    //if (!operador) { errorDiv.style.display = 'flex'; errorText.textContent = 'Ingresa el nombre del operador.'; return; }
     if (!email) { errorDiv.style.display = 'flex'; errorText.textContent = 'Ingresa tu correo electrónico.'; return; }
     if (password.length < 6) { errorDiv.style.display = 'flex'; errorText.textContent = 'La contraseña debe tener al menos 6 caracteres.'; return; }
     if (password !== password2) { errorDiv.style.display = 'flex'; errorText.textContent = 'Las contraseñas no coinciden.'; return; }
@@ -181,18 +183,22 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     btnIcon.style.animation = 'spin 1s linear infinite';
 
     try {
-      var res = await fetch('/api/registro', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: email,
-          password: password,
-          nombre_empresa: nombreEmpresa,
-          rfc: rfc,
-          direccion_fiscal: direccion,
-          nombre_operador: operador,
-        }),
-      });
+      // 1. La ruta correcta hacia tu endpoint de Astro
+// Dentro de registro.astro
+const res = await fetch('http://localhost:5145/api/auth/register', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    email: email,
+    password: password,
+    rol: 'mayorista', // Campo estático que definiste
+    nombre_empresa: nombreEmpresa,
+    
+    // Agregamos estos para que viajen en el metadata
+    rfc: rfc,
+    direccion: direccion 
+  }),
+});
 
       var result = await res.json();
       console.log('Registration result:', result);
@@ -208,26 +214,11 @@ import BaseLayout from '../layouts/BaseLayout.astro';
       }
 
       // Success!
-      if (result.has_session && result.mayorista_id) {
-        // Auto confirmed — set cookies and redirect
-        document.cookie = 'proveedor_id=' + result.mayorista_id + '; path=/; max-age=604800; SameSite=Lax';
-        document.cookie = 'proveedor_nombre=' + encodeURIComponent(nombreEmpresa) + '; path=/; max-age=604800; SameSite=Lax';
-        successDiv.style.display = 'block';
-        document.getElementById('success-text').textContent = '¡Cuenta creada! Redirigiendo al panel...';
-        document.getElementById('success-detail').textContent = '';
-        document.getElementById('register-form').style.display = 'none';
-        setTimeout(function() { window.location.href = '/dashboard'; }, 1200);
-      } else {
-        // Needs email confirmation
-        successDiv.style.display = 'block';
-        document.getElementById('success-text').textContent = '¡Cuenta creada exitosamente!';
-        document.getElementById('success-detail').textContent = 'Enviamos un enlace de confirmación a ' + email + '. Revisa tu bandeja (y spam) para activar tu cuenta.';
-        document.getElementById('register-form').style.display = 'none';
-
-        if (result.db_error) {
-          console.warn('DB insert issue (mayorista row):', result.db_error);
-        }
-      }
+      successDiv.style.display = 'block';
+document.getElementById('success-text').textContent = '¡Cuenta creada! Redirigiendo al panel...';
+document.getElementById('success-detail').textContent = '';
+document.getElementById('register-form').style.display = 'none';
+setTimeout(function() { window.location.href = '/dashboard'; }, 1200);
     } catch (err) {
       console.error('Registration fetch error:', err);
       errorDiv.style.display = 'flex';
