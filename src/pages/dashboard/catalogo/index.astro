@@ -443,7 +443,6 @@ var API_URL = document.getElementById('app-config').dataset.apiUrl;
   });
 
   // ---- Image Upload ----
-  var uploadedImageUrl = '';
   var fileInput = document.getElementById('form-file');
   var dropZone = document.getElementById('drop-zone');
 
@@ -485,6 +484,7 @@ var API_URL = document.getElementById('app-config').dataset.apiUrl;
     reader.readAsDataURL(file);
   }
 
+  // Sube el archivo a la API de C# (StorageEndpoints)
   async function uploadImageFile() {
     var file = fileInput.files[0];
     if (!file) return null;
@@ -496,7 +496,7 @@ var API_URL = document.getElementById('app-config').dataset.apiUrl;
     fd.append('proveedor_id', proveedorId);
 
     try {
-      var res = await fetch('/api/upload-imagen', { method: 'POST', body: fd });
+      var res = await fetch(API_URL + '/api/storage/upload-imagen', { method: 'POST', body: fd });
       var data = await res.json();
       if (data.url) {
         document.getElementById('upload-status').textContent = '✓ Subida exitosa';
@@ -538,13 +538,13 @@ var API_URL = document.getElementById('app-config').dataset.apiUrl;
     btn.innerHTML = '<span class="material-symbols-outlined text-base" style="animation:spin 1s linear infinite">progress_activity</span> Guardando...';
     errorDiv.style.display = 'none';
 
-    // If there's a file selected, upload it first
+    // Si hay archivo seleccionado, subirlo primero a la API de C#
     if (fileInput.files.length > 0) {
       var uploadUrl = await uploadImageFile();
       if (uploadUrl) imageUrl = uploadUrl;
     }
 
-    // Use the hidden final field if set (from edit)
+    // Usar el campo oculto si no hay imageUrl nueva (caso edición)
     var finalImgField = document.getElementById('form-image-final');
     if (!imageUrl && finalImgField && finalImgField.value) {
       imageUrl = finalImgField.value;
@@ -562,37 +562,37 @@ var API_URL = document.getElementById('app-config').dataset.apiUrl;
     };
 
     try {
-  var res;
-  if (formId) {
-    res = await fetch(API_URL + '/api/catalogo-productos/' + formId, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-  } else {
-    payload.id_mayorista = proveedorId;
-    payload.created_at = new Date().toISOString();
-    res = await fetch(API_URL + '/api/catalogo-productos', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-  }
+      var res;
+      if (formId) {
+        res = await fetch(API_URL + '/api/catalogo-productos/' + formId, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      } else {
+        payload.id_mayorista = proveedorId;
+        payload.created_at = new Date().toISOString();
+        res = await fetch(API_URL + '/api/catalogo-productos', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      }
 
-  if (!res.ok) {
-    var errData = await res.json().catch(() => ({}));
-    throw new Error(errData.message || 'Error ' + res.status);
-  }
+      if (!res.ok) {
+        var errData = await res.json().catch(() => ({}));
+        throw new Error(errData.message || 'Error ' + res.status);
+      }
 
-  window.location.reload(); // ✅ esto es lo que faltaba
+      window.location.reload();
 
-} catch (err) {
-  console.error('Save error:', err);
-  errorDiv.style.display = 'flex';
-  errorText.textContent = 'Error al guardar: ' + (err.message || 'desconocido');
-  btn.disabled = false;
-  btn.innerHTML = '<span class="material-symbols-outlined text-base">save</span><span id="btn-save-text">Guardar</span>';
-}
+    } catch (err) {
+      console.error('Save error:', err);
+      errorDiv.style.display = 'flex';
+      errorText.textContent = 'Error al guardar: ' + (err.message || 'desconocido');
+      btn.disabled = false;
+      btn.innerHTML = '<span class="material-symbols-outlined text-base">save</span><span id="btn-save-text">Guardar</span>';
+    }
   });
 </script>
 
