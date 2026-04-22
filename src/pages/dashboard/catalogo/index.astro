@@ -526,6 +526,7 @@ async function uploadImageFile() {
 }
 
 // ---- Form Submit (Add / Edit) ----
+// ---- Form Submit (Add / Edit) ----
 document.getElementById('product-form').addEventListener('submit', async function(e) {
   e.preventDefault();
   var errorDiv  = document.getElementById('form-error');
@@ -550,29 +551,21 @@ document.getElementById('product-form').addEventListener('submit', async functio
   btn.innerHTML = '<span class="material-symbols-outlined text-base" style="animation:spin 1s linear infinite">progress_activity</span> Guardando...';
   errorDiv.style.display = 'none';
 
-  // Determinar imagen final:
-  // 1) Si hay archivo nuevo → subirlo
-  // 2) Si hay URL escrita en el tab URL → usarla
-  // 3) Si ninguna de las dos → conservar la imagen original (form-image-final)
+  // Determinar imagen final
   var imageUrl = '';
-
-  if (fileInput.files.length > 0) {
+  if (fileInput && fileInput.files.length > 0) {
     var uploadUrl = await uploadImageFile();
     if (uploadUrl) imageUrl = uploadUrl;
   }
-
   if (!imageUrl) {
     var urlTabVisible = document.getElementById('url-section').style.display !== 'none';
-    if (urlTabVisible) {
-      imageUrl = document.getElementById('form-image').value.trim();
-    }
+    if (urlTabVisible) imageUrl = document.getElementById('form-image').value.trim();
   }
+  if (!imageUrl) imageUrl = document.getElementById('form-image-final').value.trim();
 
-  if (!imageUrl) {
-    imageUrl = document.getElementById('form-image-final').value.trim();
-  }
-
+  // PAYLOAD COMPLETO: Requerido para PUT (reemplazo total)
   var payload = {
+    id_mayorista:     proveedorId, // <-- CRÍTICO: Previene que el backend lo borre al hacer PUT
     nombre_articulo:  name,
     categoria:        category,
     precio_mayorista: price,
@@ -586,13 +579,15 @@ document.getElementById('product-form').addEventListener('submit', async functio
   try {
     var res;
     if (formId) {
+      // MODO EDICIÓN: Usamos PUT en lugar de PATCH
+      payload.id_producto = formId; 
       res = await fetch(API_URL + '/api/catalogo-productos/' + formId, {
-        method:  'PATCH',
+        method:  'PUT', 
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify(payload)
       });
     } else {
-      payload.id_mayorista = proveedorId;
+      // MODO CREACIÓN: Usamos POST
       payload.created_at   = new Date().toISOString();
       res = await fetch(API_URL + '/api/catalogo-productos', {
         method:  'POST',
@@ -606,6 +601,7 @@ document.getElementById('product-form').addEventListener('submit', async functio
       throw new Error(errData.message || 'Error ' + res.status);
     }
 
+    // El servidor guardó correctamente, recargamos para ver los cambios
     window.location.reload();
 
   } catch (err) {

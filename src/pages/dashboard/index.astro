@@ -9,12 +9,12 @@ async function safeFetch(url: string) {
     const res = await fetch(url);
     const text = await res.text();
     if (!text || text.trim() === '') {
-      console.log(`⚠️ Respuesta vacía: ${url}`);
+      console.log(`Respuesta vacía: ${url}`);
       return { success: false, data: null, pagination: null };
     }
     return JSON.parse(text);
   } catch (e) {
-    console.log(`❌ Error en fetch ${url}:`, e);
+    console.log(`Error en fetch ${url}:`, e);
     return { success: false, data: null, pagination: null };
   }
 }
@@ -34,19 +34,17 @@ const totalProductos = productosData.pagination?.total ?? 0;
 const productIds     = productosData.data?.map((p: any) => p.id_producto) ?? [];
 
 // Cotizaciones
-let cotPendientes    = 0;
-let cotRespondidas   = 0;
-let recentCotizaciones: any[] = [];
+const solicitudesData = await safeFetch(
+  `${API_URL}/api/solicitudes-mayorista?id_mayorista=${proveedorId}&pageSize=100`
+);
+const todasSolicitudes: any[] = solicitudesData.data ?? [];
 
-if (productIds.length > 0) {
-  const cotData  = await safeFetch(`${API_URL}/api/cotizaciones?pageSize=100`);
-  const todasCot = cotData.data ?? [];
-  const misCot   = todasCot.filter((c: any) => productIds.includes(c.id_producto));
-
-  cotPendientes      = misCot.filter((c: any) => c.estado === 'Negociando').length;
-  cotRespondidas     = misCot.filter((c: any) => ['Aceptada', 'Rechazada'].includes(c.estado)).length;
-  recentCotizaciones = misCot.slice(0, 5);
-}
+const cotPendientes    = todasSolicitudes.filter((s: any) => s.estado === 'pendiente').length;
+const cotRespondidas   = todasSolicitudes.filter((s: any) => ['aceptada', 'rechazada'].includes(s.estado)).length;
+const recentCotizaciones = todasSolicitudes
+  .filter((s: any) => s.estado === 'pendiente')
+  .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+  .slice(0, 5);
 
 // Rating (sin endpoint aún)
 const avgRating    = '—';
@@ -61,9 +59,9 @@ const initials = proveedor?.nombre_empresa
   .toUpperCase() ?? '??';
 
 const estadoBadge: Record<string, { classes: string; label: string }> = {
-  Negociando: { classes: 'bg-tertiary/10 text-tertiary border-tertiary/20', label: 'Pendiente' },
-  Aceptada:   { classes: 'bg-success/10 text-success border-success/20',    label: 'Aceptada'  },
-  Rechazada:  { classes: 'bg-error/10 text-error border-error/20',          label: 'Rechazada' },
+  pendiente: { classes: 'bg-warning/10 text-warning border-warning/20',    label: 'Pendiente' },
+  aceptada:  { classes: 'bg-success/10 text-success border-success/20',    label: 'Aceptada'  },
+  rechazada: { classes: 'bg-error/10 text-error border-error/20',          label: 'Rechazada' },
 };
 
 const urgencyBadge: Record<string, { classes: string; icon: string }> = {

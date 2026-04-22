@@ -3,244 +3,192 @@ import DashboardLayout from '../../../layouts/DashboardLayout.astro';
 
 const API_URL = import.meta.env.PUBLIC_API_URL;
 
+// Auth guard
+const proveedorId = Astro.cookies.get('proveedor_id')?.value;
+if (!proveedorId) return Astro.redirect('/');
+
 async function safeFetch(url: string) {
   try {
     const res  = await fetch(url);
     const text = await res.text();
     if (!text || text.trim() === '') return { success: false, data: null };
     return JSON.parse(text);
-  } catch (e) {
-    console.log(`❌ Error en fetch ${url}:`, e);
+  } catch {
     return { success: false, data: null };
   }
 }
 
-const proveedorId = Astro.cookies.get('proveedor_id')?.value;
-if (!proveedorId) return Astro.redirect('/');
-
-// 1. IDs de productos del mayorista
-const misProductosData = await safeFetch(
-  `${API_URL}/api/catalogo-productos?id_mayorista=${proveedorId}&fields=id_producto&pageSize=200`
+// Solo solicitudes pendientes para que el mayorista las responda
+const result = await safeFetch(
+  `${API_URL}/api/solicitudes-mayorista?id_mayorista=${proveedorId}&estado=pendiente&pageSize=100`
 );
-const productIds: string[] = (misProductosData.data ?? [])
-  .map((p: any) => p.id_producto)
-  .filter(Boolean);
 
-// 2. Cotizaciones con joins
-let cotizaciones: any[] = [];
-if (productIds.length > 0) {
-  const idsParam = productIds.join(',');
-  const cotizData = await safeFetch(
-    `${API_URL}/api/cotizaciones?id_productos=${idsParam}&estado=enviada&include=producto,solicitud,cliente&pageSize=100`
-  );
-
-  // Mapear nombres de API → nombres que usa el template
-  cotizaciones = (cotizData.data ?? []).map((c: any) => ({
-    ...c,
-    catalogo_productos: c.producto,
-    solicitudes_cotizacion: {
-      ...c.solicitud,
-      clientes: c.cliente,
-    },
-  }));
-}
-
-// 3. Agrupar por solicitud
-const grouped: Record<string, { solicitud: any; items: any[] }> = {};
-for (const cot of cotizaciones) {
-  const sol = cot.solicitudes_cotizacion ?? {};
-  const solId = sol.id_solicitud ?? cot.id_cotizacion;
-  if (!grouped[solId]) {
-    grouped[solId] = { solicitud: sol, items: [] };
-  }
-  grouped[solId].items.push(cot);
-}
-
-const groups = Object.entries(grouped);
-
-const urgencyConfig: Record<string, { label: string; classes: string; icon: string }> = {
-  normal:  { label: 'Normal',  classes: 'bg-success/10 text-success border-success/20',  icon: 'remove' },
-  urgente: { label: 'Urgente', classes: 'bg-error/10 text-error border-error/20',         icon: 'arrow_upward' },
-};
+const solicitudes: any[] = result.data ?? [];
 ---
 
-<DashboardLayout title="Cotizaciones Recibidas" activeNav="cotizaciones">
+<DashboardLayout title="Solicitudes Pendientes" activeNav="solicitudes">
+
+  <!-- Header -->
   <header class="mb-8">
-    <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
-      <div>
-        <p class="text-sm font-semibold text-primary uppercase tracking-widest mb-2">Cotizaciones</p>
-        <h1 class="font-headline text-3xl md:text-4xl font-extrabold text-on-surface tracking-tight">
-          Cotizaciones Recibidas
-        </h1>
-        <p class="text-on-surface-variant font-body mt-1">
-          {cotizaciones.length} producto{cotizaciones.length !== 1 ? 's' : ''} en {groups.length} solicitud{groups.length !== 1 ? 'es' : ''} pendiente{groups.length !== 1 ? 's' : ''}
-        </p>
-      </div>
-    </div>
+    <p class="text-sm font-semibold text-primary uppercase tracking-widest mb-2">Por Responder</p>
+    <h1 class="font-headline text-3xl md:text-4xl font-extrabold text-on-surface tracking-tight">
+      Solicitudes Pendientes
+    </h1>
+    <p class="text-on-surface-variant font-body mt-1">
+      {solicitudes.length} solicitud{solicitudes.length !== 1 ? 'es' : ''} esperando tu respuesta
+    </p>
   </header>
 
-  {groups.length === 0 ? (
+  <!-- Lista -->
+  {solicitudes.length === 0 ? (
     <div class="glass-card rounded-2xl p-16 text-center">
-      <span class="material-symbols-outlined text-6xl text-on-surface-variant mb-4">mark_email_read</span>
-      <h3 class="text-xl font-bold text-on-surface mb-2">No hay cotizaciones pendientes</h3>
-      <p class="text-on-surface-variant">Cuando los operadores incluyan tus productos en cotizaciones, aparecerán aquí.</p>
+      <span class="material-symbols-outlined text-6xl text-on-surface-variant mb-4">inbox</span>
+      <h3 class="text-xl font-bold text-on-surface mb-2">Sin solicitudes pendientes</h3>
+      <p class="text-on-surface-variant">
+        Cuando los operadores te incluyan en cotizaciones, aparecerán aquí.
+      </p>
     </div>
   ) : (
-    <div class="space-y-6">
-      {groups.map(([solId, group], groupIdx) => {
-        const sol = group.solicitud;
-        const urgency = urgencyConfig[sol?.nivel_urgencia || 'media'];
+    <div class="flex flex-col gap-4" id="solicitudes-lista">
+      {solicitudes.map((sol: any) => {
+        const productos: any[] = Array.isArray(sol.productos) ? sol.productos : [];
+        const fecha = sol.created_at
+          ? new Date(sol.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' })
+          : '';
+
         return (
-          <div class={`glass-card rounded-2xl overflow-hidden animate-slide-up stagger-${Math.min(groupIdx + 1, 6)}`} style="opacity:0;">
-            <!-- Solicitud Header -->
-            <div class="p-5 sm:p-6 border-b border-outline-subtle">
-              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div class="flex items-start gap-4">
-                  <div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-                    <span class="material-symbols-outlined text-primary text-xl">request_quote</span>
-                  </div>
-                  <div>
-                    <h3 class="font-bold text-on-surface text-base">
-                      Solicitud: {sol?.descripcion_articulo || 'Sin descripción'}
-                    </h3>
-                    <p class="text-sm text-on-surface-variant mt-0.5">
-                      Cliente: <span class="text-on-surface font-medium">{sol?.clientes?.nombre_empresa || 'N/A'}</span>
-                    </p>
-                    <p class="text-xs text-on-surface-variant mt-1">
-                      {sol?.created_at ? new Date(sol.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' }) : ''}
-                    </p>
-                  </div>
+          <div
+            class="glass-card rounded-2xl overflow-hidden"
+            data-id={sol.id_solicitud_mayorista}
+          >
+            <!-- Card header -->
+            <div class="p-5 border-b border-outline-subtle flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                  <span class="material-symbols-outlined text-primary text-xl">request_quote</span>
                 </div>
-                <div class="flex items-center gap-2">
-                  <span class={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold border ${urgency.classes}`}>
-                    <span class="material-symbols-outlined text-xs">{urgency.icon}</span>
-                    Urgencia {urgency.label}
-                  </span>
-                  <span class="px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-xs font-semibold border border-primary/20">
-                    {group.items.length} producto{group.items.length !== 1 ? 's' : ''}
-                  </span>
+                <div>
+                  <p class="font-semibold text-on-surface text-sm">
+                    Solicitud #{sol.id_solicitud_mayorista?.toString().slice(0, 8).toUpperCase()}
+                  </p>
+                  <p class="text-xs text-on-surface-variant">{fecha}</p>
                 </div>
               </div>
-              {sol?.especificaciones_req && (
-                <div class="mt-4 p-3 rounded-xl bg-surface-container text-sm text-on-surface-variant">
-                  <span class="font-semibold text-on-surface-variant">Especificaciones: </span>
-                  {typeof sol.especificaciones_req === 'object' ? JSON.stringify(sol.especificaciones_req) : sol.especificaciones_req}
-                </div>
-              )}
+              <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-warning/10 text-warning border border-warning/20 self-start sm:self-auto">
+                <span class="material-symbols-outlined text-xs">schedule</span>
+                Pendiente
+              </span>
             </div>
 
-            <!-- Products in this quotation -->
-            <div class="divide-y divide-outline-subtle">
-              {group.items.map((cot: any) => {
-                const prod = cot.catalogo_productos;
-                return (
-                  <div class="p-5 sm:p-6 cotizacion-item" data-cot-id={cot.id_cotizacion} data-sol-id={solId}>
-                    <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                      <!-- Product Info -->
-                      <div class="flex items-center gap-4 flex-1">
-                        <div class="w-16 h-16 rounded-xl bg-surface-container flex items-center justify-center shrink-0 overflow-hidden">
-                          {prod?.imagen_url ? (
-                            <img src={prod.imagen_url} alt="" class="w-full h-full object-cover" />
-                          ) : (
-                            <span class="material-symbols-outlined text-on-surface-variant text-2xl">shopping_bag</span>
-                          )}
-                        </div>
-                        <div class="min-w-0">
-                          <h4 class="font-bold text-on-surface">{prod?.nombre_articulo || 'Producto'}</h4>
-                          <p class="text-sm text-on-surface-variant">{prod?.categoria}</p>
-                          <div class="flex items-center gap-4 mt-1">
-                            <span class="text-xs text-on-surface-variant">
-                              Precio catálogo: <span class="text-on-surface font-semibold">${Number(prod?.precio_mayorista || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
-                            </span>
-                            <span class="text-xs text-on-surface-variant">
-                              Cantidad: <span class="text-on-surface font-semibold">{cot.cantidad} uds</span>
-                            </span>
-                            <span class="text-xs text-on-surface-variant">
-                              MOQ: <span class="text-on-surface font-semibold">{prod?.moq || 1}</span>
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <!-- Operator notes -->
-                      {cot.notas_operador && (
-                        <div class="lg:max-w-[200px] p-3 rounded-xl bg-surface-container text-xs text-on-surface-variant">
-                          <span class="font-semibold text-on-surface-variant flex items-center gap-1 mb-1">
-                            <span class="material-symbols-outlined text-xs">comment</span> Nota del operador
+            <!-- Productos solicitados -->
+            <div class="p-5">
+              {productos.length > 0 ? (
+                <div class="mb-4">
+                  <p class="text-xs text-on-surface-variant uppercase tracking-widest mb-2 font-semibold">
+                    Productos solicitados
+                  </p>
+                  <div class="flex flex-col gap-2">
+                    {productos.map((p: any) => (
+                      <div class="flex items-center justify-between py-2 px-3 rounded-xl bg-surface-container border border-outline-subtle">
+                        <div class="flex items-center gap-2">
+                          <span class="material-symbols-outlined text-on-surface-variant text-base">package_2</span>
+                          <span class="text-sm text-on-surface font-medium">
+                            {typeof p === 'string' ? p : (p.nombre ?? p.nombre_articulo ?? 'Producto')}
                           </span>
-                          {cot.notas_operador}
                         </div>
-                      )}
-                    </div>
+                        {(p.cantidad || p.qty) && (
+                          <span class="text-xs font-semibold text-on-surface-variant">
+                            ×{p.cantidad ?? p.qty}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <p class="text-sm text-on-surface-variant mb-4">Sin detalle de productos.</p>
+              )}
 
-                    <!-- Response Form -->
-                    <div class="mt-4 p-4 rounded-xl bg-surface-container border border-outline-subtle">
-                      <p class="text-sm font-semibold text-on-surface mb-3 flex items-center gap-2">
-                        <span class="material-symbols-outlined text-primary text-base">edit_note</span>
-                        Tu Respuesta
-                      </p>
-                      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
-                        <div class="flex flex-col gap-1">
-                          <label class="text-xs text-on-surface-variant font-semibold">Precio Final</label>
-                          <div class="relative">
-                            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-xs font-semibold">$</span>
-                            <input
-                              type="number"
-                              step="0.01"
-                              min="0"
-                              value={prod?.precio_mayorista}
-                              class="input-precio w-full pl-7 pr-3 py-2.5 bg-surface-container-low border border-outline-subtle rounded-lg text-sm text-on-surface focus:outline-none focus:border-primary/40 transition-smooth"
-                            />
-                          </div>
-                        </div>
-                        <div class="flex flex-col gap-1">
-                          <label class="text-xs text-on-surface-variant font-semibold">Tiempo de Entrega</label>
-                          <div class="relative">
-                            <input
-                              type="number"
-                              min="1"
-                              value="5"
-                              class="input-entrega w-full px-3 py-2.5 bg-surface-container-low border border-outline-subtle rounded-lg text-sm text-on-surface focus:outline-none focus:border-primary/40 transition-smooth"
-                            />
-                            <span class="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-xs">días</span>
-                          </div>
-                        </div>
-                        <div class="flex flex-col gap-1">
-                          <label class="text-xs text-on-surface-variant font-semibold">Disponible</label>
-                          <select class="input-disponible w-full px-3 py-2.5 bg-surface-container-low border border-outline-subtle rounded-lg text-sm text-on-surface focus:outline-none focus:border-primary/40 transition-smooth appearance-none">
-                            <option value="true">Sí, disponible</option>
-                            <option value="false">No disponible</option>
-                          </select>
-                        </div>
+              {sol.notas_operador && (
+                <div class="mb-4 p-3 rounded-xl bg-surface-container border border-outline-subtle">
+                  <p class="text-xs font-semibold text-on-surface-variant uppercase tracking-widest mb-1">
+                    Nota del operador
+                  </p>
+                  <p class="text-sm text-on-surface">{sol.notas_operador}</p>
+                </div>
+              )}
+
+              <!-- Formulario de respuesta -->
+              <div class="border-t border-outline-subtle pt-4 mt-2">
+                <p class="text-xs font-semibold text-on-surface-variant uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                  <span class="material-symbols-outlined text-sm">edit_note</span>
+                  Tu Respuesta
+                </p>
+                <form
+                  class="respuesta-form flex flex-col gap-3"
+                  data-id={sol.id_solicitud_mayorista}
+                >
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div class="flex flex-col gap-1">
+                      <label class="text-xs font-semibold text-on-surface-variant">
+                        Costo de envio ($) *
+                      </label>
+                      <div class="relative">
+                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-sm font-semibold">$</span>
+                        <input
+                          type="number" step="0.01" min="0" required
+                          name="precio"
+                          placeholder="0.00"
+                          class="w-full pl-8 pr-4 py-2.5 bg-surface-container border border-outline-subtle rounded-xl text-sm text-on-surface focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/20 transition-smooth"
+                        />
                       </div>
-                      <div class="flex flex-col gap-1 mb-4">
-                        <label class="text-xs text-on-surface-variant font-semibold">Notas para el operador</label>
-                        <textarea
-                          class="input-notas w-full px-3 py-2.5 bg-surface-container-low border border-outline-subtle rounded-lg text-sm text-on-surface placeholder-on-surface-variant focus:outline-none focus:border-primary/40 transition-smooth resize-none"
-                          rows="2"
-                          placeholder="Ej: Tenemos 200 unidades en stock, entrega express disponible..."
-                        ></textarea>
-                      </div>
-                      <div class="flex items-center gap-3">
-                        <button
-                          class="btn-accept flex-1 gradient-primary text-[#0f1419] py-2.5 rounded-xl font-bold text-sm hover:shadow-lg hover:shadow-primary/20 transition-smooth flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
-                          data-cot-id={cot.id_cotizacion}
-                        >
-                          <span class="material-symbols-outlined text-base">check_circle</span>
-                          Aceptar Cotización
-                        </button>
-                        <button
-                          class="btn-reject py-2.5 px-6 rounded-xl border border-error/30 text-error font-bold text-sm hover:bg-error/10 transition-smooth flex items-center justify-center gap-2"
-                          data-cot-id={cot.id_cotizacion}
-                        >
-                          <span class="material-symbols-outlined text-base">cancel</span>
-                          Rechazar
-                        </button>
-                      </div>
+                    </div>
+                    <div class="flex flex-col gap-1">
+                      <label class="text-xs font-semibold text-on-surface-variant">
+                        Tiempo de Entrega (días)
+                      </label>
+                      <input
+                        type="number" min="1" name="tiempo_entrega"
+                        placeholder="Ej: 5"
+                        class="w-full px-4 py-2.5 bg-surface-container border border-outline-subtle rounded-xl text-sm text-on-surface focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/20 transition-smooth"
+                      />
                     </div>
                   </div>
-                );
-              })}
+
+                  <div class="flex flex-col gap-1">
+                    <label class="text-xs font-semibold text-on-surface-variant">
+                      Notas adicionales
+                    </label>
+                    <textarea
+                      name="notas" rows="2"
+                      placeholder="Condiciones, disponibilidad, descuentos..."
+                      class="w-full px-4 py-2.5 bg-surface-container border border-outline-subtle rounded-xl text-sm text-on-surface focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/20 transition-smooth resize-none"
+                    ></textarea>
+                  </div>
+
+                  <div class="form-error hidden p-3 rounded-xl bg-error/10 border border-error/20 text-error text-sm flex items-center gap-2">
+                    <span class="material-symbols-outlined text-base">error</span>
+                    <span class="form-error-text"></span>
+                  </div>
+
+                  <div class="flex gap-2">
+                    <button
+                      type="submit" name="accion" value="aceptada"
+                      class="flex-1 gradient-primary text-[#0f1419] font-bold py-2.5 rounded-xl text-sm flex items-center justify-center gap-1.5 hover:shadow-lg hover:shadow-primary/20 transition-smooth"
+                    >
+                      <span class="material-symbols-outlined text-base">check_circle</span>
+                      Aceptar
+                    </button>
+                    <button
+                      type="submit" name="accion" value="rechazada"
+                      class="flex-1 py-2.5 rounded-xl border border-error/30 text-error font-semibold text-sm flex items-center justify-center gap-1.5 hover:bg-error/10 transition-smooth"
+                    >
+                      <span class="material-symbols-outlined text-base">cancel</span>
+                      Rechazar
+                    </button>
+                  </div>
+                </form>
+              </div>
             </div>
           </div>
         );
@@ -249,111 +197,84 @@ const urgencyConfig: Record<string, { label: string; classes: string; icon: stri
   )}
 </DashboardLayout>
 
-<script>
-  const API_URL = import.meta.env.PUBLIC_API_URL;
+<div id="app-config" data-api-url={API_URL} style="display:none;"></div>
 
-  async function apiPatch(endpoint: string, body: object) {
-    const res = await fetch(`${API_URL}${endpoint}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(text || `Error ${res.status}`);
+<script is:inline>
+var API_URL = document.getElementById('app-config').dataset.apiUrl;
+
+document.querySelectorAll('.respuesta-form').forEach(function(form) {
+  form.addEventListener('submit', async function(e) {
+    e.preventDefault();
+
+    // Detectar qué botón se presionó
+    var accion = e.submitter?.value || 'aceptada';
+    var solId  = form.dataset.id;
+
+    var precio         = parseFloat(form.querySelector('[name="precio"]').value);
+    var tiempoEntrega  = parseInt(form.querySelector('[name="tiempo_entrega"]').value) || null;
+    var notas          = form.querySelector('[name="notas"]').value.trim() || null;
+
+    var errorDiv  = form.querySelector('.form-error');
+    var errorText = form.querySelector('.form-error-text');
+
+    if (isNaN(precio) || precio <= 0) {
+      errorDiv.classList.remove('hidden');
+      errorText.textContent = 'El precio final es obligatorio.';
+      return;
     }
-    return res.json().catch(() => ({}));
-  }
 
-  async function apiGet(endpoint: string) {
-    const res = await fetch(`${API_URL}${endpoint}`);
-    if (!res.ok) throw new Error(`Error ${res.status}`);
-    const text = await res.text();
-    return text ? JSON.parse(text) : { data: null };
-  }
+    errorDiv.classList.add('hidden');
 
-  // Verificar si todas las cotizaciones de una solicitud ya fueron respondidas
-  async function checkAndUpdateSolicitud(solId: string | undefined) {
-    if (!solId) return;
+    // Deshabilitar botones
+    var btns = form.querySelectorAll('button[type="submit"]');
+    btns.forEach(function(b) { b.disabled = true; });
 
-    const result = await apiGet(`/api/cotizaciones?id_solicitud=${solId}&fields=estado&pageSize=200`);
-    const allCots: any[] = result.data ?? [];
-    if (!allCots.length) return;
-
-    const allResponded = allCots.every((c: any) => c.estado === 'aceptada' || c.estado === 'rechazada');
-
-    if (allResponded) {
-      await apiPatch(`/api/solicitudes-cotizacion/${solId}`, {
-        estado_solicitud: 'respondida',
-        updated_at: new Date().toISOString(),
+    try {
+      var res = await fetch(API_URL + '/api/solicitudes-mayorista/' + solId, {
+        method:  'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          estado:              accion,
+          costo_envio:    precio,
+          tiempo_entrega_dias: tiempoEntrega,
+          notas_mayorista:     notas,
+          respondido_at:       new Date().toISOString()
+        })
       });
+
+      if (!res.ok) {
+        var err = await res.json().catch(function() { return {}; });
+        throw new Error(err.message || 'Error ' + res.status);
+      }
+
+      // Quitar la card del DOM con animación
+      var card = form.closest('[data-id="' + solId + '"]');
+      if (card) {
+        card.style.transition = 'opacity 0.3s, transform 0.3s';
+        card.style.opacity = '0';
+        card.style.transform = 'scale(0.97)';
+        setTimeout(function() { card.remove(); }, 320);
+      }
+
+      // Actualizar el contador del header
+      var total = document.querySelectorAll('#solicitudes-lista [data-id]').length - 1;
+      var counter = document.querySelector('header p.text-on-surface-variant');
+      if (counter) {
+        counter.textContent = total + ' solicitud' + (total !== 1 ? 'es' : '') + ' esperando tu respuesta';
+      }
+
+    } catch (err) {
+      errorDiv.classList.remove('hidden');
+      errorText.textContent = 'Error al enviar: ' + (err.message || 'desconocido');
+      btns.forEach(function(b) { b.disabled = false; });
     }
-  }
-
-  // Aceptar cotización
-  document.querySelectorAll('.btn-accept').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const el = btn as HTMLButtonElement;
-      const cotId = el.dataset.cotId;
-      const container = el.closest('.cotizacion-item') as HTMLElement;
-      const solId = container?.dataset.solId;
-
-      const precio    = (container?.querySelector('.input-precio') as HTMLInputElement)?.value;
-      const entrega   = (container?.querySelector('.input-entrega') as HTMLInputElement)?.value;
-      const disponible = (container?.querySelector('.input-disponible') as HTMLSelectElement)?.value;
-      const notas     = (container?.querySelector('.input-notas') as HTMLTextAreaElement)?.value;
-
-      el.disabled = true;
-      el.innerHTML = '<span class="material-symbols-outlined animate-spin text-base">progress_activity</span> Procesando...';
-
-      try {
-        await apiPatch(`/api/cotizaciones/${cotId}`, {
-          estado: 'aceptada',
-          precio_proveedor_final: parseFloat(precio) || null,
-          disponibilidad: disponible === 'true',
-          tiempo_entrega_dias: parseInt(entrega) || null,
-          notas_proveedor: notas || null,
-          respondido_at: new Date().toISOString(),
-        });
-
-        await checkAndUpdateSolicitud(solId);
-        window.location.reload();
-      } catch (e: any) {
-        alert('Error: ' + e.message);
-        el.disabled = false;
-        el.innerHTML = '<span class="material-symbols-outlined text-base">check_circle</span> Aceptar Cotización';
-      }
-    });
   });
-
-  // Rechazar cotización
-  document.querySelectorAll('.btn-reject').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const el = btn as HTMLButtonElement;
-      const cotId = el.dataset.cotId;
-      const container = el.closest('.cotizacion-item') as HTMLElement;
-      const solId = container?.dataset.solId;
-
-      const notas = (container?.querySelector('.input-notas') as HTMLTextAreaElement)?.value;
-
-      el.disabled = true;
-      el.innerHTML = '<span class="material-symbols-outlined animate-spin text-base">progress_activity</span>';
-
-      try {
-        await apiPatch(`/api/cotizaciones/${cotId}`, {
-          estado: 'rechazada',
-          disponibilidad: false,
-          notas_proveedor: notas || 'Rechazada por el proveedor',
-          respondido_at: new Date().toISOString(),
-        });
-
-        await checkAndUpdateSolicitud(solId);
-        window.location.reload();
-      } catch (e: any) {
-        alert('Error: ' + e.message);
-        el.disabled = false;
-        el.innerHTML = '<span class="material-symbols-outlined text-base">cancel</span> Rechazar';
-      }
-    });
-  });
+});
 </script>
+
+<style>
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+  }
+</style>
