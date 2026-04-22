@@ -1,50 +1,57 @@
 ---
 import DashboardLayout from '../../../layouts/DashboardLayout.astro';
-import { supabase } from '../../../db/supabase';
+
+const API_URL = import.meta.env.PUBLIC_API_URL;
+
+async function safeFetch(url: string) {
+  try {
+    const res  = await fetch(url);
+    const text = await res.text();
+    if (!text || text.trim() === '') return { success: false, data: null };
+    return JSON.parse(text);
+  } catch (e) {
+    console.log(`❌ Error en fetch ${url}:`, e);
+    return { success: false, data: null };
+  }
+}
 
 const proveedorId = Astro.cookies.get('proveedor_id')?.value;
 if (!proveedorId) return Astro.redirect('/');
 
-// Get provider's products
-const { data: myProducts } = await supabase
-  .from('catalogo_productos')
-  .select('id_producto')
-  .eq('id_mayorista', proveedorId);
+// 1. IDs de productos del mayorista
+const misProductosData = await safeFetch(
+  `${API_URL}/api/catalogo-productos?id_mayorista=${proveedorId}&fields=id_producto&pageSize=200`
+);
+const productIds: string[] = (misProductosData.data ?? [])
+  .map((p: any) => p.id_producto)
+  .filter(Boolean);
 
-const productIds = myProducts?.map((p: any) => p.id_producto) || [];
-
+// 2. Cotizaciones con joins
 let cotizaciones: any[] = [];
 if (productIds.length > 0) {
-  const { data } = await supabase
-    .from('cotizaciones_downlabs')
-    .select(`
-      *,
-      catalogo_productos (id_producto, nombre_articulo, categoria, precio_mayorista, imagen_url, moq),
-      solicitudes_cotizacion (
-        id_solicitud,
-        descripcion_articulo,
-        especificaciones_req,
-        nivel_urgencia,
-        estado_solicitud,
-        created_at,
-        clientes (nombre_empresa, correo_contacto)
-      )
-    `)
-    .in('id_producto', productIds)
-    .eq('estado', 'enviada')
-    .order('created_at', { ascending: false });
-  cotizaciones = data || [];
+  const idsParam = productIds.join(',');
+  const cotizData = await safeFetch(
+    `${API_URL}/api/cotizaciones?id_productos=${idsParam}&estado=enviada&include=producto,solicitud,cliente&pageSize=100`
+  );
+
+  // Mapear nombres de API → nombres que usa el template
+  cotizaciones = (cotizData.data ?? []).map((c: any) => ({
+    ...c,
+    catalogo_productos: c.producto,
+    solicitudes_cotizacion: {
+      ...c.solicitud,
+      clientes: c.cliente,
+    },
+  }));
 }
 
-// Group by solicitud
+// 3. Agrupar por solicitud
 const grouped: Record<string, { solicitud: any; items: any[] }> = {};
 for (const cot of cotizaciones) {
-  const solId = cot.solicitudes_cotizacion?.id_solicitud || cot.id_cotizacion;
+  const sol = cot.solicitudes_cotizacion ?? {};
+  const solId = sol.id_solicitud ?? cot.id_cotizacion;
   if (!grouped[solId]) {
-    grouped[solId] = {
-      solicitud: cot.solicitudes_cotizacion,
-      items: []
-    };
+    grouped[solId] = { solicitud: sol, items: [] };
   }
   grouped[solId].items.push(cot);
 }
@@ -52,9 +59,8 @@ for (const cot of cotizaciones) {
 const groups = Object.entries(grouped);
 
 const urgencyConfig: Record<string, { label: string; classes: string; icon: string }> = {
-  baja:  { label: 'Baja',  classes: 'bg-success/10 text-success border-success/20', icon: 'arrow_downward' },
-  media: { label: 'Media', classes: 'bg-tertiary/10 text-tertiary border-tertiary/20', icon: 'remove' },
-  alta:  { label: 'Alta',  classes: 'bg-error/10 text-error border-error/20', icon: 'arrow_upward' },
+  normal:  { label: 'Normal',  classes: 'bg-success/10 text-success border-success/20',  icon: 'remove' },
+  urgente: { label: 'Urgente', classes: 'bg-error/10 text-error border-error/20',         icon: 'arrow_upward' },
 };
 ---
 
@@ -244,9 +250,47 @@ const urgencyConfig: Record<string, { label: string; classes: string; icon: stri
 </DashboardLayout>
 
 <script>
-  import { supabase } from '../../../db/supabase';
+  const API_URL = import.meta.env.PUBLIC_API_URL;
 
-  // Accept quotation
+  async function apiPatch(endpoint: string, body: object) {
+    const res = await fetch(`${API_URL}${endpoint}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(text || `Error ${res.status}`);
+    }
+    return res.json().catch(() => ({}));
+  }
+
+  async function apiGet(endpoint: string) {
+    const res = await fetch(`${API_URL}${endpoint}`);
+    if (!res.ok) throw new Error(`Error ${res.status}`);
+    const text = await res.text();
+    return text ? JSON.parse(text) : { data: null };
+  }
+
+  // Verificar si todas las cotizaciones de una solicitud ya fueron respondidas
+  async function checkAndUpdateSolicitud(solId: string | undefined) {
+    if (!solId) return;
+
+    const result = await apiGet(`/api/cotizaciones?id_solicitud=${solId}&fields=estado&pageSize=200`);
+    const allCots: any[] = result.data ?? [];
+    if (!allCots.length) return;
+
+    const allResponded = allCots.every((c: any) => c.estado === 'aceptada' || c.estado === 'rechazada');
+
+    if (allResponded) {
+      await apiPatch(`/api/solicitudes-cotizacion/${solId}`, {
+        estado_solicitud: 'respondida',
+        updated_at: new Date().toISOString(),
+      });
+    }
+  }
+
+  // Aceptar cotización
   document.querySelectorAll('.btn-accept').forEach(btn => {
     btn.addEventListener('click', async () => {
       const el = btn as HTMLButtonElement;
@@ -254,40 +298,35 @@ const urgencyConfig: Record<string, { label: string; classes: string; icon: stri
       const container = el.closest('.cotizacion-item') as HTMLElement;
       const solId = container?.dataset.solId;
 
-      const precio = (container?.querySelector('.input-precio') as HTMLInputElement)?.value;
-      const entrega = (container?.querySelector('.input-entrega') as HTMLInputElement)?.value;
+      const precio    = (container?.querySelector('.input-precio') as HTMLInputElement)?.value;
+      const entrega   = (container?.querySelector('.input-entrega') as HTMLInputElement)?.value;
       const disponible = (container?.querySelector('.input-disponible') as HTMLSelectElement)?.value;
-      const notas = (container?.querySelector('.input-notas') as HTMLTextAreaElement)?.value;
+      const notas     = (container?.querySelector('.input-notas') as HTMLTextAreaElement)?.value;
 
       el.disabled = true;
       el.innerHTML = '<span class="material-symbols-outlined animate-spin text-base">progress_activity</span> Procesando...';
 
-      const { error } = await supabase
-        .from('cotizaciones_downlabs')
-        .update({
+      try {
+        await apiPatch(`/api/cotizaciones/${cotId}`, {
           estado: 'aceptada',
           precio_proveedor_final: parseFloat(precio) || null,
           disponibilidad: disponible === 'true',
           tiempo_entrega_dias: parseInt(entrega) || null,
           notas_proveedor: notas || null,
           respondido_at: new Date().toISOString(),
-        })
-        .eq('id_cotizacion', cotId);
+        });
 
-      if (error) {
-        alert('Error: ' + error.message);
+        await checkAndUpdateSolicitud(solId);
+        window.location.reload();
+      } catch (e: any) {
+        alert('Error: ' + e.message);
         el.disabled = false;
         el.innerHTML = '<span class="material-symbols-outlined text-base">check_circle</span> Aceptar Cotización';
-        return;
       }
-
-      // Check if all items in this solicitud are responded
-      await checkAndUpdateSolicitud(solId);
-      window.location.reload();
     });
   });
 
-  // Reject quotation
+  // Rechazar cotización
   document.querySelectorAll('.btn-reject').forEach(btn => {
     btn.addEventListener('click', async () => {
       const el = btn as HTMLButtonElement;
@@ -300,49 +339,21 @@ const urgencyConfig: Record<string, { label: string; classes: string; icon: stri
       el.disabled = true;
       el.innerHTML = '<span class="material-symbols-outlined animate-spin text-base">progress_activity</span>';
 
-      const { error } = await supabase
-        .from('cotizaciones_downlabs')
-        .update({
+      try {
+        await apiPatch(`/api/cotizaciones/${cotId}`, {
           estado: 'rechazada',
           disponibilidad: false,
           notas_proveedor: notas || 'Rechazada por el proveedor',
           respondido_at: new Date().toISOString(),
-        })
-        .eq('id_cotizacion', cotId);
+        });
 
-      if (error) {
-        alert('Error: ' + error.message);
+        await checkAndUpdateSolicitud(solId);
+        window.location.reload();
+      } catch (e: any) {
+        alert('Error: ' + e.message);
         el.disabled = false;
         el.innerHTML = '<span class="material-symbols-outlined text-base">cancel</span> Rechazar';
-        return;
       }
-
-      await checkAndUpdateSolicitud(solId);
-      window.location.reload();
     });
   });
-
-  // Check if all cotizaciones for a solicitud are responded
-  async function checkAndUpdateSolicitud(solId: string | undefined) {
-    if (!solId) return;
-
-    const { data: allCots } = await supabase
-      .from('cotizaciones_downlabs')
-      .select('estado')
-      .eq('id_solicitud', solId);
-
-    if (!allCots) return;
-
-    const allResponded = allCots.every((c: any) => c.estado === 'aceptada' || c.estado === 'rechazada');
-
-    if (allResponded) {
-      await supabase
-        .from('solicitudes_cotizacion')
-        .update({
-          estado_solicitud: 'respondida',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id_solicitud', solId);
-    }
-  }
 </script>

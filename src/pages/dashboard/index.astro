@@ -1,100 +1,74 @@
 ---
 import DashboardLayout from '../../layouts/DashboardLayout.astro';
-import { supabase } from '../../db/supabase';
+
+const API_URL = import.meta.env.PUBLIC_API_URL;
+
+// Helper seguro
+async function safeFetch(url: string) {
+  try {
+    const res = await fetch(url);
+    const text = await res.text();
+    if (!text || text.trim() === '') {
+      console.log(`⚠️ Respuesta vacía: ${url}`);
+      return { success: false, data: null, pagination: null };
+    }
+    return JSON.parse(text);
+  } catch (e) {
+    console.log(`❌ Error en fetch ${url}:`, e);
+    return { success: false, data: null, pagination: null };
+  }
+}
 
 // Auth guard
 const proveedorId = Astro.cookies.get('proveedor_id')?.value;
-if (!proveedorId) {
-  return Astro.redirect('/');
-}
+if (!proveedorId) return Astro.redirect('/');
 
-// Fetch proveedor info
-const { data: proveedor } = await supabase
-  .from('mayoristas')
-  .select('*')
-  .eq('id_mayorista', proveedorId)
-  .single();
+// Fetch proveedor
+const proveedorData = await safeFetch(`${API_URL}/api/mayoristas/${proveedorId}`);
+if (!proveedorData.data) return Astro.redirect('/');
+const proveedor = proveedorData.data;
 
-if (!proveedor) {
-  return Astro.redirect('/');
-}
+// Productos del mayorista
+const productosData  = await safeFetch(`${API_URL}/api/catalogo-productos?id_mayorista=${proveedorId}&pageSize=100`);
+const totalProductos = productosData.pagination?.total ?? 0;
+const productIds     = productosData.data?.map((p: any) => p.id_producto) ?? [];
 
-// Count products in catalog
-const { count: totalProductos } = await supabase
-  .from('catalogo_productos')
-  .select('*', { count: 'exact', head: true })
-  .eq('id_mayorista', proveedorId);
-
-// Count pending quotations (sent to this supplier)
-const { data: myProducts } = await supabase
-  .from('catalogo_productos')
-  .select('id_producto')
-  .eq('id_mayorista', proveedorId);
-
-const productIds = myProducts?.map((p: any) => p.id_producto) || [];
-
-let cotPendientes = 0;
-let cotRespondidas = 0;
+// Cotizaciones
+let cotPendientes    = 0;
+let cotRespondidas   = 0;
 let recentCotizaciones: any[] = [];
 
 if (productIds.length > 0) {
-  const { count: pendCount } = await supabase
-    .from('cotizaciones_downlabs')
-    .select('*', { count: 'exact', head: true })
-    .in('id_producto', productIds)
-    .eq('estado', 'enviada');
-  cotPendientes = pendCount || 0;
+  const cotData  = await safeFetch(`${API_URL}/api/cotizaciones?pageSize=100`);
+  const todasCot = cotData.data ?? [];
+  const misCot   = todasCot.filter((c: any) => productIds.includes(c.id_producto));
 
-  const { count: respCount } = await supabase
-    .from('cotizaciones_downlabs')
-    .select('*', { count: 'exact', head: true })
-    .in('id_producto', productIds)
-    .in('estado', ['aceptada', 'rechazada']);
-  cotRespondidas = respCount || 0;
-
-  // Recent quotations
-  const { data: recientes } = await supabase
-    .from('cotizaciones_downlabs')
-    .select(`
-      *,
-      catalogo_productos (nombre_articulo, categoria, precio_mayorista, imagen_url),
-      solicitudes_cotizacion (descripcion_articulo, nivel_urgencia, clientes (nombre_empresa))
-    `)
-    .in('id_producto', productIds)
-    .order('created_at', { ascending: false })
-    .limit(5);
-  recentCotizaciones = recientes || [];
+  cotPendientes      = misCot.filter((c: any) => c.estado === 'Negociando').length;
+  cotRespondidas     = misCot.filter((c: any) => ['Aceptada', 'Rechazada'].includes(c.estado)).length;
+  recentCotizaciones = misCot.slice(0, 5);
 }
 
-// Average product rating
-const { data: ratings } = await supabase
-  .from('ratings_productos')
-  .select('calificacion, catalogo_productos!inner(id_mayorista)')
-  .eq('catalogo_productos.id_mayorista', proveedorId);
+// Rating (sin endpoint aún)
+const avgRating    = '—';
+const totalRatings = 0;
 
-const avgRating = ratings && ratings.length > 0
-  ? (ratings.reduce((s: number, r: any) => s + r.calificacion, 0) / ratings.length).toFixed(1)
-  : '—';
-const totalRatings = ratings?.length || 0;
-
-const initials = proveedor.nombre_empresa
-  .split(' ')
+// Iniciales
+const initials = proveedor?.nombre_empresa
+  ?.split(' ')
   .map((w: string) => w[0])
   .join('')
   .slice(0, 2)
-  .toUpperCase();
+  .toUpperCase() ?? '??';
 
 const estadoBadge: Record<string, { classes: string; label: string }> = {
-  pendiente: { classes: 'bg-tertiary/10 text-tertiary border-tertiary/20', label: 'Pendiente' },
-  enviada:   { classes: 'bg-primary/10 text-primary border-primary/20', label: 'Pendiente' },
-  aceptada:  { classes: 'bg-success/10 text-success border-success/20', label: 'Aceptada'  },
-  rechazada: { classes: 'bg-error/10 text-error border-error/20', label: 'Rechazada' },
+  Negociando: { classes: 'bg-tertiary/10 text-tertiary border-tertiary/20', label: 'Pendiente' },
+  Aceptada:   { classes: 'bg-success/10 text-success border-success/20',    label: 'Aceptada'  },
+  Rechazada:  { classes: 'bg-error/10 text-error border-error/20',          label: 'Rechazada' },
 };
 
 const urgencyBadge: Record<string, { classes: string; icon: string }> = {
-  baja:  { classes: 'text-on-surface-variant', icon: 'arrow_downward' },
-  media: { classes: 'text-tertiary', icon: 'remove' },
-  alta:  { classes: 'text-error', icon: 'arrow_upward' },
+  Normal:  { classes: 'text-on-surface-variant', icon: 'remove'       },
+  Urgente: { classes: 'text-error',              icon: 'arrow_upward' },
 };
 ---
 
@@ -211,10 +185,10 @@ const urgencyBadge: Record<string, { classes: string; icon: string }> = {
       ) : (
         <div class="space-y-3">
           {recentCotizaciones.map((cot: any, i: number) => {
-            const badge = estadoBadge[cot.estado] || estadoBadge.pendiente;
+            const badge = estadoBadge[cot.estado] || estadoBadge.Negociando;
             const prod = cot.catalogo_productos;
             const sol = cot.solicitudes_cotizacion;
-            const urgency = sol ? urgencyBadge[sol.nivel_urgencia] || urgencyBadge.media : urgencyBadge.media;
+            const urgency = sol ? urgencyBadge[sol.nivel_urgencia] || urgencyBadge.Normal : urgencyBadge.Normal;
             return (
               <a
                 href="/dashboard/cotizaciones"

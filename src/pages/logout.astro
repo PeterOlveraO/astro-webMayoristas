@@ -1,9 +1,14 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 
-// Clear cookies on server side
-Astro.cookies.delete('proveedor_id', { path: '/' });
+// Borrar las 5 cookies que guarda el login
+Astro.cookies.delete('proveedor_id',     { path: '/' });
 Astro.cookies.delete('proveedor_nombre', { path: '/' });
+Astro.cookies.delete('proveedor_email',  { path: '/' });
+Astro.cookies.delete('proveedor_rol',    { path: '/' });
+Astro.cookies.delete('access_token',     { path: '/' });
+
+return Astro.redirect('/');
 ---
 
 <BaseLayout title="Cerrando Sesión · DownLabs">
@@ -18,18 +23,4 @@ Astro.cookies.delete('proveedor_nombre', { path: '/' });
   </div>
 </BaseLayout>
 
-<script>
-  import { supabase } from '../db/supabase';
 
-  // Sign out from Supabase Auth
-  await supabase.auth.signOut();
-
-  // Clear cookies on client side too
-  document.cookie = 'proveedor_id=; path=/; max-age=0';
-  document.cookie = 'proveedor_nombre=; path=/; max-age=0';
-
-  // Redirect to login
-  setTimeout(() => {
-    window.location.href = '/';
-  }, 800);
-</script>

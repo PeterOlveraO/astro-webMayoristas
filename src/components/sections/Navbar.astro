@@ -33,7 +33,30 @@
 
     <div class="hidden sm:flex items-center gap-3">
       <div class="text-right">
-        <p class="text-xs font-semibold text-on-surface" id="navbar-name">TechParts MX</p>
+        <script is:inline>
+  function getCookie(name) {
+    var m = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+    return m ? decodeURIComponent(m[2]) : '';
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    var nombre = getCookie('proveedor_nombre') || 'Proveedor';
+
+    var navName = document.getElementById('navbar-name');
+    if (navName) navName.textContent = nombre;
+
+    var initials = nombre
+      .split(' ')
+      .slice(0, 2)
+      .map(function(w) { return w[0]; })
+      .join('')
+      .toUpperCase();
+
+    var navAvatar = document.getElementById('navbar-avatar');
+    if (navAvatar) navAvatar.textContent = initials || 'P';
+  });
+</script>
+        <p class="text-xs font-semibold text-on-surface" id="navbar-name"></p>
         <p class="text-[10px] text-on-surface-variant uppercase tracking-wider">Proveedor</p>
       </div>
       <div class="w-9 h-9 rounded-full gradient-accent flex items-center justify-center ring-2 ring-primary/10">

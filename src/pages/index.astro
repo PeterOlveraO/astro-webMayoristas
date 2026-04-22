@@ -1,8 +1,10 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
+const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:5145';
 ---
 
 <BaseLayout title="Iniciar Sesión · DownLabs Proveedores">
+  <div id="app-config" data-api-url={API_URL} style="display:none"></div>
   <div class="min-h-screen bg-surface flex items-center justify-center p-4 font-body relative overflow-hidden">
     
     <!-- Background effects -->
@@ -81,28 +83,17 @@ import BaseLayout from '../layouts/BaseLayout.astro';
   </div>
 </BaseLayout>
 
+
 <script is:inline>
-  // Load Supabase from CDN (avoids module bundling issues)
-  var SUPABASE_URL = 'https://fjxddcpjzewmqmrscykp.supabase.co';
-  var SUPABASE_KEY = 'sb_publishable_7TG9orn93oxr1kVB9W6O1w_ZbBJ2p-S';
+  const API_URL = document.getElementById('app-config').dataset.apiUrl;
 
-  // We'll use the Supabase JS client that's already bundled by Astro
-  // But wrap in a dynamic import to avoid issues
-  async function getSupabase() {
-    var mod = await import('/node_modules/@supabase/supabase-js/dist/module/index.js').catch(function() { return null; });
-    if (mod && mod.createClient) return mod.createClient(SUPABASE_URL, SUPABASE_KEY);
-    // Fallback: use fetch directly
-    return null;
-  }
-
-  // Check if already logged in (via cookie)
   function getCookie(name) {
     var m = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
     return m ? m[2] : '';
   }
-  if (getCookie('proveedor_id')) {
-    window.location.href = '/dashboard';
-  }
+  if (getCookie('proveedor_id') && getCookie('access_token')) {
+  window.location.href = '/dashboard';
+}
 
   document.getElementById('login-form').addEventListener('submit', async function(e) {
     e.preventDefault();
@@ -128,11 +119,9 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     btnIcon.style.animation = 'spin 1s linear infinite';
 
     try {
-      // Use Supabase Auth REST API directly (no client lib needed)
-      var res = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=password', {
+      var res = await fetch(API_URL + '/api/auth/login', {
         method: 'POST',
         headers: {
-          'apikey': SUPABASE_KEY,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ email: email, password: password }),
@@ -141,10 +130,9 @@ import BaseLayout from '../layouts/BaseLayout.astro';
       var data = await res.json();
       console.log('Login response:', data);
 
-      if (!res.ok || data.error || data.error_description) {
-        var msg = data.error_description || data.msg || data.error || 'Error desconocido';
-        if (msg.includes('Invalid login')) msg = 'Correo o contraseña incorrectos.';
-        if (msg.includes('Email not confirmed')) msg = 'Confirma tu correo antes de iniciar sesión. Revisa tu bandeja.';
+      if (!res.ok || !data.success) {
+        var msg = data.message || data.error || 'Error desconocido';
+        if (msg.includes('Invalid') || msg.includes('incorrectos')) msg = 'Correo o contraseña incorrectos.';
         errorDiv.style.display = 'flex';
         errorText.textContent = msg;
         btn.disabled = false;
@@ -154,48 +142,15 @@ import BaseLayout from '../layouts/BaseLayout.astro';
         return;
       }
 
-      // data.user.user_metadata should have our info
-      var meta = data.user && data.user.user_metadata ? data.user.user_metadata : {};
-      var mayorId = meta.mayorista_id;
-      var empresaNombre = meta.nombre_empresa || '';
+      var userData = data.data;
+      var perfil = userData.perfil;
+      var userId = userData.user_id;
+      var userEmail = userData.email;
+      var rol = userData.rol;
+      var proveedorId = perfil.id_mayorista;
+      var proveedorNombre = perfil.nombre_empresa || '';
 
-      // If no mayorista_id, try to create the mayorista now (user is authenticated)
-      if (!mayorId && empresaNombre && data.access_token) {
-        var insertRes = await fetch(SUPABASE_URL + '/rest/v1/mayoristas', {
-          method: 'POST',
-          headers: {
-            'apikey': SUPABASE_KEY,
-            'Authorization': 'Bearer ' + data.access_token,
-            'Content-Type': 'application/json',
-            'Prefer': 'return=representation',
-          },
-          body: JSON.stringify({
-            nombre_empresa: empresaNombre,
-            ubicacion: meta.direccion_fiscal || '',
-            nivel_confianza: 3,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          }),
-        });
-        var insertData = await insertRes.json();
-        console.log('Mayorista insert result:', insertData);
-
-        if (Array.isArray(insertData) && insertData.length > 0) {
-          mayorId = insertData[0].id_mayorista;
-          // Update user metadata
-          await fetch(SUPABASE_URL + '/auth/v1/user', {
-            method: 'PUT',
-            headers: {
-              'apikey': SUPABASE_KEY,
-              'Authorization': 'Bearer ' + data.access_token,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ data: { mayorista_id: mayorId } }),
-          });
-        }
-      }
-
-      if (!mayorId) {
+      if (!proveedorId) {
         errorDiv.style.display = 'flex';
         errorText.textContent = 'Tu cuenta no está vinculada a un proveedor. Contacta a DownLabs si el problema persiste.';
         btn.disabled = false;
@@ -205,12 +160,11 @@ import BaseLayout from '../layouts/BaseLayout.astro';
         return;
       }
 
-      // Set cookies
-      document.cookie = 'proveedor_id=' + mayorId + '; path=/; max-age=604800; SameSite=Lax';
-      document.cookie = 'proveedor_nombre=' + encodeURIComponent(empresaNombre) + '; path=/; max-age=604800; SameSite=Lax';
-
-      // store access token for supabase client
-      document.cookie = 'sb_access_token=' + data.access_token + '; path=/; max-age=604800; SameSite=Lax';
+      document.cookie = 'proveedor_id=' + proveedorId + '; path=/; max-age=604800; SameSite=Lax';
+      document.cookie = 'proveedor_nombre=' + encodeURIComponent(proveedorNombre) + '; path=/; max-age=604800; SameSite=Lax';
+      document.cookie = 'proveedor_email=' + encodeURIComponent(userEmail) + '; path=/; max-age=604800; SameSite=Lax';
+      document.cookie = 'proveedor_rol=' + rol + '; path=/; max-age=604800; SameSite=Lax';
+      document.cookie = 'access_token=' + userData.access_token + '; path=/; max-age=604800; SameSite=Lax';
 
       window.location.href = '/dashboard';
 

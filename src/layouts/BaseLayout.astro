@@ -1,5 +1,6 @@
 ---
 import '../styles/global.css';
+const API_URL = import.meta.env.PUBLIC_API_URL;
 
 interface Props {
   title: string;
@@ -26,6 +27,8 @@ const { title, description = 'Portal de Proveedores — DownLabs' } = Astro.prop
     />
   </head>
   <body>
+    <div id="app-config" data-api-url={API_URL} style="display:none"></div>
+    
     <slot />
   </body>
 </html>

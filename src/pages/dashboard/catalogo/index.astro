@@ -1,20 +1,34 @@
 ---
 import DashboardLayout from '../../../layouts/DashboardLayout.astro';
-import { supabase } from '../../../db/supabase';
 
+
+const API_URL = import.meta.env.PUBLIC_API_URL;
+
+// Helper seguro (el mismo que usamos en el dashboard)
+async function safeFetch(url: string) {
+  try {
+    const res  = await fetch(url);
+    const text = await res.text();
+    if (!text || text.trim() === '') {
+      console.log(`Respuesta vacía: ${url}`);
+      return { success: false, data: null, pagination: null };
+    }
+    return JSON.parse(text);
+  } catch (e) {
+    console.log(`Error en fetch ${url}:`, e);
+    return { success: false, data: null, pagination: null };
+  }
+}
+
+// Auth guard
 const proveedorId = Astro.cookies.get('proveedor_id')?.value;
 if (!proveedorId) return Astro.redirect('/');
 
-// Fetch products
-const { data: productos } = await supabase
-  .from('catalogo_productos')
-  .select('*')
-  .eq('id_mayorista', proveedorId)
-  .order('created_at', { ascending: false });
+// Fetch productos del mayorista
+const productosData = await safeFetch(`${API_URL}/api/catalogo-productos?id_mayorista=${proveedorId}&pageSize=100`);
+const items = productosData.data ?? [];
 
-const items = productos || [];
-
-// Generate dynamic categories from the provider's own products
+// Categorías dinámicas desde los productos del mayorista
 const categoriasSet = new Set<string>();
 items.forEach((p: any) => { if (p.categoria) categoriasSet.add(p.categoria); });
 const categorias = Array.from(categoriasSet).sort();
@@ -307,34 +321,17 @@ const categoryIcons: Record<string, string> = {
     </div>
   </div>
 </DashboardLayout>
-
+<div id="app-config" data-api-url={API_URL} style="display:none;"></div>
 <script is:inline>
-  var SUPABASE_URL = 'https://fjxddcpjzewmqmrscykp.supabase.co';
-  var SUPABASE_KEY = 'sb_publishable_7TG9orn93oxr1kVB9W6O1w_ZbBJ2p-S';
-
+var API_URL = document.getElementById('app-config').dataset.apiUrl;
   function getCookie(name) {
     var m = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
-    return m ? m[2] : '';
+    return m ? decodeURIComponent(m[2]) : '';
   }
 
   var proveedorId = getCookie('proveedor_id');
   var accessToken = getCookie('sb_access_token');
-  var authHeader = accessToken ? 'Bearer ' + accessToken : 'Bearer ' + SUPABASE_KEY;
 
-  // ---- Supabase REST helper ----
-  function sbFetch(path, method, body) {
-    var opts = {
-      method: method || 'GET',
-      headers: {
-        'apikey': SUPABASE_KEY,
-        'Authorization': authHeader,
-        'Content-Type': 'application/json',
-        'Prefer': method === 'POST' ? 'return=representation' : (method === 'PATCH' ? 'return=representation' : ''),
-      },
-    };
-    if (body) opts.body = JSON.stringify(body);
-    return fetch(SUPABASE_URL + '/rest/v1/' + path, opts).then(function(r) { return r.json().catch(function() { return null; }); });
-  }
 
   // ---- Category Filter ----
   document.querySelectorAll('.cat-filter').forEach(function(btn) {
@@ -441,7 +438,7 @@ const categoryIcons: Record<string, string> = {
     btn.innerHTML = '<span class="material-symbols-outlined text-base" style="animation:spin 1s linear infinite">progress_activity</span>';
     btn.disabled = true;
 
-    await sbFetch('catalogo_productos?id_producto=eq.' + deleteTargetId, 'DELETE');
+    await fetch(API_URL + '/api/catalogo-productos/' + deleteTargetId, { method: 'DELETE' });
     window.location.reload();
   });
 
@@ -565,22 +562,37 @@ const categoryIcons: Record<string, string> = {
     };
 
     try {
-      if (formId) {
-        await sbFetch('catalogo_productos?id_producto=eq.' + formId, 'PATCH', payload);
-      } else {
-        payload.id_mayorista = proveedorId;
-        payload.created_at = new Date().toISOString();
-        var result = await sbFetch('catalogo_productos', 'POST', payload);
-        console.log('Insert result:', result);
-      }
-      window.location.reload();
-    } catch (err) {
-      console.error('Save error:', err);
-      errorDiv.style.display = 'flex';
-      errorText.textContent = 'Error al guardar: ' + (err.message || 'desconocido');
-      btn.disabled = false;
-      btn.innerHTML = '<span class="material-symbols-outlined text-base">save</span><span>Guardar</span>';
-    }
+  var res;
+  if (formId) {
+    res = await fetch(API_URL + '/api/catalogo-productos/' + formId, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+  } else {
+    payload.id_mayorista = proveedorId;
+    payload.created_at = new Date().toISOString();
+    res = await fetch(API_URL + '/api/catalogo-productos', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+  }
+
+  if (!res.ok) {
+    var errData = await res.json().catch(() => ({}));
+    throw new Error(errData.message || 'Error ' + res.status);
+  }
+
+  window.location.reload(); // ✅ esto es lo que faltaba
+
+} catch (err) {
+  console.error('Save error:', err);
+  errorDiv.style.display = 'flex';
+  errorText.textContent = 'Error al guardar: ' + (err.message || 'desconocido');
+  btn.disabled = false;
+  btn.innerHTML = '<span class="material-symbols-outlined text-base">save</span><span id="btn-save-text">Guardar</span>';
+}
   });
 </script>
 
