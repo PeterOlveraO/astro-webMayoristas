@@ -228,11 +228,11 @@ const categoryIcons: Record<string, string> = {
           <div class="flex flex-col gap-2">
             <label class="text-sm font-semibold text-on-surface-variant">Imagen del Producto</label>
             <div class="flex gap-2 mb-2">
-              <button type="button" id="tab-upload" class="img-tab flex-1 py-2 rounded-lg text-xs font-semibold bg-primary/10 text-primary border border-primary/20 flex items-center justify-center gap-1.5 transition-smooth" onclick="document.getElementById('upload-section').style.display='';document.getElementById('url-section').style.display='none';document.querySelectorAll('.img-tab').forEach(function(t){t.classList.remove('bg-primary/10','text-primary','border-primary/20');t.classList.add('bg-surface-container','text-on-surface-variant','border-outline-subtle')});this.classList.remove('bg-surface-container','text-on-surface-variant','border-outline-subtle');this.classList.add('bg-primary/10','text-primary','border-primary/20')">
+              <button type="button" id="tab-upload" class="img-tab active-tab flex-1 py-2 rounded-lg text-xs font-semibold bg-primary/10 text-primary border border-primary/20 flex items-center justify-center gap-1.5 transition-smooth">
                 <span class="material-symbols-outlined text-sm">upload_file</span>
                 Subir Archivo
               </button>
-              <button type="button" id="tab-url" class="img-tab flex-1 py-2 rounded-lg text-xs font-medium bg-surface-container text-on-surface-variant border border-outline-subtle flex items-center justify-center gap-1.5 transition-smooth" onclick="document.getElementById('url-section').style.display='';document.getElementById('upload-section').style.display='none';document.querySelectorAll('.img-tab').forEach(function(t){t.classList.remove('bg-primary/10','text-primary','border-primary/20');t.classList.add('bg-surface-container','text-on-surface-variant','border-outline-subtle')});this.classList.remove('bg-surface-container','text-on-surface-variant','border-outline-subtle');this.classList.add('bg-primary/10','text-primary','border-primary/20')">
+              <button type="button" id="tab-url" class="img-tab flex-1 py-2 rounded-lg text-xs font-medium bg-surface-container text-on-surface-variant border border-outline-subtle flex items-center justify-center gap-1.5 transition-smooth">
                 <span class="material-symbols-outlined text-sm">link</span>
                 Pegar URL
               </button>
@@ -321,284 +321,307 @@ const categoryIcons: Record<string, string> = {
     </div>
   </div>
 </DashboardLayout>
+
 <div id="app-config" data-api-url={API_URL} style="display:none;"></div>
 <script is:inline>
 var API_URL = document.getElementById('app-config').dataset.apiUrl;
-  function getCookie(name) {
-    var m = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
-    return m ? decodeURIComponent(m[2]) : '';
-  }
 
-  var proveedorId = getCookie('proveedor_id');
-  var accessToken = getCookie('sb_access_token');
+function getCookie(name) {
+  var m = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+  return m ? decodeURIComponent(m[2]) : '';
+}
 
+var proveedorId = getCookie('proveedor_id');
 
-  // ---- Category Filter ----
-  document.querySelectorAll('.cat-filter').forEach(function(btn) {
-    btn.addEventListener('click', function() {
-      document.querySelectorAll('.cat-filter').forEach(function(b) {
-        b.classList.remove('bg-primary/10', 'text-primary', 'border-primary/20');
-        b.classList.add('bg-surface-container', 'text-on-surface-variant', 'border-outline-subtle');
-      });
-      btn.classList.remove('bg-surface-container', 'text-on-surface-variant', 'border-outline-subtle');
-      btn.classList.add('bg-primary/10', 'text-primary', 'border-primary/20');
+// ---- Tab switching helper (sin onclick inline para evitar conflictos) ----
+function activateTab(tabId) {
+  var isUpload = tabId === 'upload';
+  document.getElementById('upload-section').style.display = isUpload ? '' : 'none';
+  document.getElementById('url-section').style.display   = isUpload ? 'none' : '';
 
-      var filter = btn.dataset.filter;
-      document.querySelectorAll('.product-card').forEach(function(card) {
-        if (filter === 'all' || card.dataset.category === filter) {
-          card.style.display = '';
-        } else {
-          card.style.display = 'none';
-        }
-      });
+  ['tab-upload', 'tab-url'].forEach(function(id) {
+    var t = document.getElementById(id);
+    if (id === 'tab-' + tabId) {
+      t.classList.add('bg-primary/10', 'text-primary', 'border-primary/20');
+      t.classList.remove('bg-surface-container', 'text-on-surface-variant', 'border-outline-subtle');
+    } else {
+      t.classList.remove('bg-primary/10', 'text-primary', 'border-primary/20');
+      t.classList.add('bg-surface-container', 'text-on-surface-variant', 'border-outline-subtle');
+    }
+  });
+}
+
+document.getElementById('tab-upload').addEventListener('click', function() { activateTab('upload'); });
+document.getElementById('tab-url').addEventListener('click', function()    { activateTab('url'); });
+
+// ---- Category Filter ----
+document.querySelectorAll('.cat-filter').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.cat-filter').forEach(function(b) {
+      b.classList.remove('bg-primary/10', 'text-primary', 'border-primary/20');
+      b.classList.add('bg-surface-container', 'text-on-surface-variant', 'border-outline-subtle');
+    });
+    btn.classList.remove('bg-surface-container', 'text-on-surface-variant', 'border-outline-subtle');
+    btn.classList.add('bg-primary/10', 'text-primary', 'border-primary/20');
+
+    var filter = btn.dataset.filter;
+    document.querySelectorAll('.product-card').forEach(function(card) {
+      card.style.display = (filter === 'all' || card.dataset.category === filter) ? '' : 'none';
     });
   });
+});
 
-  // ---- Modal Management ----
-  var productModal = document.getElementById('product-modal');
-  var deleteModal = document.getElementById('delete-modal');
-  var deleteTargetId = '';
+// ---- Modal Management ----
+var productModal = document.getElementById('product-modal');
+var deleteModal  = document.getElementById('delete-modal');
+var deleteTargetId = '';
 
-  function openModal(isEdit) {
-    productModal.style.display = '';
-    document.body.style.overflow = 'hidden';
-    document.getElementById('modal-title').textContent = isEdit ? 'Editar Producto' : 'Nuevo Producto';
-    document.getElementById('btn-save-text').textContent = isEdit ? 'Actualizar' : 'Guardar';
-  }
+function openModal(isEdit) {
+  productModal.style.display = '';
+  document.body.style.overflow = 'hidden';
+  document.getElementById('modal-title').textContent    = isEdit ? 'Editar Producto' : 'Nuevo Producto';
+  document.getElementById('btn-save-text').textContent  = isEdit ? 'Actualizar' : 'Guardar';
+}
 
-  function closeModal() {
-    productModal.style.display = 'none';
-    document.body.style.overflow = '';
+function closeModal() {
+  productModal.style.display = 'none';
+  document.body.style.overflow = '';
+  // Reset form completamente
+  document.getElementById('product-form').reset();
+  document.getElementById('form-id').value           = '';
+  document.getElementById('form-image').value        = '';
+  document.getElementById('form-image-final').value  = '';
+  document.getElementById('form-error').style.display = 'none';
+  // Reset upload preview
+  document.getElementById('upload-placeholder').style.display = '';
+  document.getElementById('upload-preview').style.display     = 'none';
+  document.getElementById('upload-status').textContent        = '';
+  document.getElementById('form-file').value                  = '';
+  // Volver al tab de upload
+  activateTab('upload');
+}
+
+document.getElementById('btn-add-product').addEventListener('click', function() { openModal(false); });
+var btnFirst = document.getElementById('btn-add-first');
+if (btnFirst) btnFirst.addEventListener('click', function() { openModal(false); });
+document.getElementById('modal-close').addEventListener('click', closeModal);
+document.getElementById('modal-backdrop').addEventListener('click', closeModal);
+document.getElementById('btn-cancel').addEventListener('click', closeModal);
+
+// ---- Edit buttons ----
+document.querySelectorAll('.btn-edit').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    // Primero cerrar/limpiar cualquier estado anterior
     document.getElementById('product-form').reset();
-    document.getElementById('form-id').value = '';
-    document.getElementById('form-error').style.display = 'none';
+    document.getElementById('form-image').value       = '';
     document.getElementById('form-image-final').value = '';
-    // Reset upload preview
+    document.getElementById('form-error').style.display = 'none';
     document.getElementById('upload-placeholder').style.display = '';
-    document.getElementById('upload-preview').style.display = 'none';
-    document.getElementById('upload-status').textContent = '';
-    // Reset to upload tab
-    document.getElementById('upload-section').style.display = '';
-    document.getElementById('url-section').style.display = 'none';
+    document.getElementById('upload-preview').style.display     = 'none';
+    document.getElementById('upload-status').textContent        = '';
+    document.getElementById('form-file').value                  = '';
+
+    // Llenar campos con datos del producto
+    document.getElementById('form-id').value          = btn.dataset.id       || '';
+    document.getElementById('form-name').value        = btn.dataset.name     || '';
+    document.getElementById('form-category').value    = btn.dataset.category || '';
+    document.getElementById('form-price').value       = btn.dataset.price    || '';
+    document.getElementById('form-materials').value   = btn.dataset.materials|| '';
+    document.getElementById('form-moq').value         = btn.dataset.moq      || '0';
+    document.getElementById('form-description').value = btn.dataset.description || '';
+
+    // Manejar imagen existente
+    var existingImg = btn.dataset.image || '';
+    document.getElementById('form-image-final').value = existingImg;
+    if (existingImg) {
+      document.getElementById('form-image').value = existingImg;
+      activateTab('url');
+    } else {
+      activateTab('upload');
+    }
+
+    openModal(true);
+  });
+});
+
+// ---- Delete ----
+document.querySelectorAll('.btn-delete').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    deleteTargetId = btn.dataset.id || '';
+    document.getElementById('delete-name').textContent = btn.dataset.name || '';
+    deleteModal.style.display = '';
+    document.body.style.overflow = 'hidden';
+  });
+});
+
+function closeDelete() {
+  deleteModal.style.display = 'none';
+  document.body.style.overflow = '';
+  deleteTargetId = '';
+}
+
+document.getElementById('delete-cancel').addEventListener('click', closeDelete);
+document.getElementById('delete-backdrop').addEventListener('click', closeDelete);
+
+document.getElementById('delete-confirm').addEventListener('click', async function() {
+  if (!deleteTargetId) return;
+  var btn = document.getElementById('delete-confirm');
+  btn.innerHTML = '<span class="material-symbols-outlined text-base" style="animation:spin 1s linear infinite">progress_activity</span>';
+  btn.disabled = true;
+  await fetch(API_URL + '/api/catalogo-productos/' + deleteTargetId, { method: 'DELETE' });
+  window.location.reload();
+});
+
+// ---- Image Upload ----
+var fileInput = document.getElementById('form-file');
+var dropZone  = document.getElementById('drop-zone');
+
+dropZone.addEventListener('click', function() { fileInput.click(); });
+dropZone.addEventListener('dragover', function(e) { e.preventDefault(); dropZone.classList.add('border-primary/50'); });
+dropZone.addEventListener('dragleave', function()  { dropZone.classList.remove('border-primary/50'); });
+dropZone.addEventListener('drop', function(e) {
+  e.preventDefault();
+  dropZone.classList.remove('border-primary/50');
+  if (e.dataTransfer.files.length > 0) {
+    fileInput.files = e.dataTransfer.files;
+    handleFileSelected(e.dataTransfer.files[0]);
+  }
+});
+
+fileInput.addEventListener('change', function() {
+  if (fileInput.files.length > 0) handleFileSelected(fileInput.files[0]);
+});
+
+function handleFileSelected(file) {
+  if (file.size > 5 * 1024 * 1024) { alert('El archivo no debe superar 5MB.'); return; }
+  document.getElementById('upload-placeholder').style.display = 'none';
+  document.getElementById('upload-preview').style.display     = 'flex';
+  document.getElementById('preview-name').textContent         = file.name;
+  document.getElementById('preview-size').textContent         = (file.size / 1024).toFixed(0) + ' KB';
+  document.getElementById('upload-status').textContent        = 'Listo para subir';
+  var reader = new FileReader();
+  reader.onload = function(e) { document.getElementById('preview-img').src = e.target.result; };
+  reader.readAsDataURL(file);
+}
+
+async function uploadImageFile() {
+  var file = fileInput.files[0];
+  if (!file) return null;
+  document.getElementById('upload-status').textContent = 'Subiendo...';
+  var fd = new FormData();
+  fd.append('file', file);
+  fd.append('proveedor_id', proveedorId);
+  try {
+    var res  = await fetch(API_URL + '/api/storage/upload-imagen', { method: 'POST', body: fd });
+    var data = await res.json();
+    if (data.url) {
+      document.getElementById('upload-status').textContent = '✓ Subida exitosa';
+      return data.url;
+    }
+    document.getElementById('upload-status').textContent = '✗ Error: ' + (data.error || 'desconocido');
+    return null;
+  } catch (err) {
+    document.getElementById('upload-status').textContent = '✗ Error de red';
+    return null;
+  }
+}
+
+// ---- Form Submit (Add / Edit) ----
+document.getElementById('product-form').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  var errorDiv  = document.getElementById('form-error');
+  var errorText = document.getElementById('form-error-text');
+  var btn       = document.getElementById('btn-save');
+
+  var formId      = document.getElementById('form-id').value.trim();
+  var name        = document.getElementById('form-name').value.trim();
+  var category    = document.getElementById('form-category').value.trim();
+  var price       = parseFloat(document.getElementById('form-price').value);
+  var stock       = parseInt(document.getElementById('form-moq').value) || 0;
+  var materials   = document.getElementById('form-materials').value.trim();
+  var description = document.getElementById('form-description').value.trim();
+
+  if (!name || !category || isNaN(price)) {
+    errorDiv.style.display = 'flex';
+    errorText.textContent  = 'Completa todos los campos obligatorios (nombre, categoría, precio).';
+    return;
   }
 
-  document.getElementById('btn-add-product').addEventListener('click', function() { openModal(false); });
-  var btnFirst = document.getElementById('btn-add-first');
-  if (btnFirst) btnFirst.addEventListener('click', function() { openModal(false); });
-  document.getElementById('modal-close').addEventListener('click', closeModal);
-  document.getElementById('modal-backdrop').addEventListener('click', closeModal);
-  document.getElementById('btn-cancel').addEventListener('click', closeModal);
+  btn.disabled = true;
+  btn.innerHTML = '<span class="material-symbols-outlined text-base" style="animation:spin 1s linear infinite">progress_activity</span> Guardando...';
+  errorDiv.style.display = 'none';
 
-  // ---- Edit buttons ----
-  document.querySelectorAll('.btn-edit').forEach(function(btn) {
-    btn.addEventListener('click', function() {
-      document.getElementById('form-id').value = btn.dataset.id || '';
-      document.getElementById('form-name').value = btn.dataset.name || '';
-      document.getElementById('form-category').value = btn.dataset.category || '';
-      document.getElementById('form-price').value = btn.dataset.price || '';
-      document.getElementById('form-materials').value = btn.dataset.materials || '';
-      document.getElementById('form-moq').value = btn.dataset.moq || '0';
-      document.getElementById('form-description').value = btn.dataset.description || '';
-      // Store existing image in hidden field
-      var existingImg = btn.dataset.image || '';
-      document.getElementById('form-image-final').value = existingImg;
-      if (existingImg) {
-        // Show URL tab with existing image
-        document.getElementById('form-image').value = existingImg;
-        document.getElementById('url-section').style.display = '';
-        document.getElementById('upload-section').style.display = 'none';
-        document.getElementById('tab-url').click();
-      }
-      openModal(true);
-    });
-  });
+  // Determinar imagen final:
+  // 1) Si hay archivo nuevo → subirlo
+  // 2) Si hay URL escrita en el tab URL → usarla
+  // 3) Si ninguna de las dos → conservar la imagen original (form-image-final)
+  var imageUrl = '';
 
-  // ---- Delete ----
-  document.querySelectorAll('.btn-delete').forEach(function(btn) {
-    btn.addEventListener('click', function() {
-      deleteTargetId = btn.dataset.id || '';
-      document.getElementById('delete-name').textContent = btn.dataset.name || '';
-      deleteModal.style.display = '';
-      document.body.style.overflow = 'hidden';
-    });
-  });
-
-  function closeDelete() {
-    deleteModal.style.display = 'none';
-    document.body.style.overflow = '';
-    deleteTargetId = '';
+  if (fileInput.files.length > 0) {
+    var uploadUrl = await uploadImageFile();
+    if (uploadUrl) imageUrl = uploadUrl;
   }
 
-  document.getElementById('delete-cancel').addEventListener('click', closeDelete);
-  document.getElementById('delete-backdrop').addEventListener('click', closeDelete);
+  if (!imageUrl) {
+    var urlTabVisible = document.getElementById('url-section').style.display !== 'none';
+    if (urlTabVisible) {
+      imageUrl = document.getElementById('form-image').value.trim();
+    }
+  }
 
-  document.getElementById('delete-confirm').addEventListener('click', async function() {
-    if (!deleteTargetId) return;
-    var btn = document.getElementById('delete-confirm');
-    btn.innerHTML = '<span class="material-symbols-outlined text-base" style="animation:spin 1s linear infinite">progress_activity</span>';
-    btn.disabled = true;
+  if (!imageUrl) {
+    imageUrl = document.getElementById('form-image-final').value.trim();
+  }
 
-    await fetch(API_URL + '/api/catalogo-productos/' + deleteTargetId, { method: 'DELETE' });
+  var payload = {
+    nombre_articulo:  name,
+    categoria:        category,
+    precio_mayorista: price,
+    moq:              stock,
+    materiales:       materials   || null,
+    descripcion:      description || null,
+    imagen_url:       imageUrl    || null,
+    updated_at:       new Date().toISOString(),
+  };
+
+  try {
+    var res;
+    if (formId) {
+      res = await fetch(API_URL + '/api/catalogo-productos/' + formId, {
+        method:  'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(payload)
+      });
+    } else {
+      payload.id_mayorista = proveedorId;
+      payload.created_at   = new Date().toISOString();
+      res = await fetch(API_URL + '/api/catalogo-productos', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(payload)
+      });
+    }
+
+    if (!res.ok) {
+      var errData = await res.json().catch(function() { return {}; });
+      throw new Error(errData.message || 'Error ' + res.status);
+    }
+
     window.location.reload();
-  });
 
-  // ---- Image Upload ----
-  var fileInput = document.getElementById('form-file');
-  var dropZone = document.getElementById('drop-zone');
-
-  // Click to select file
-  dropZone.addEventListener('click', function() { fileInput.click(); });
-
-  // Drag & drop
-  dropZone.addEventListener('dragover', function(e) { e.preventDefault(); dropZone.classList.add('border-primary/50'); });
-  dropZone.addEventListener('dragleave', function() { dropZone.classList.remove('border-primary/50'); });
-  dropZone.addEventListener('drop', function(e) {
-    e.preventDefault();
-    dropZone.classList.remove('border-primary/50');
-    if (e.dataTransfer.files.length > 0) {
-      fileInput.files = e.dataTransfer.files;
-      handleFileSelected(e.dataTransfer.files[0]);
-    }
-  });
-
-  fileInput.addEventListener('change', function() {
-    if (fileInput.files.length > 0) handleFileSelected(fileInput.files[0]);
-  });
-
-  function handleFileSelected(file) {
-    if (file.size > 5 * 1024 * 1024) {
-      alert('El archivo no debe superar 5MB.');
-      return;
-    }
-    // Show preview
-    document.getElementById('upload-placeholder').style.display = 'none';
-    document.getElementById('upload-preview').style.display = 'flex';
-    document.getElementById('preview-name').textContent = file.name;
-    document.getElementById('preview-size').textContent = (file.size / 1024).toFixed(0) + ' KB';
-    document.getElementById('upload-status').textContent = 'Listo para subir';
-
-    var reader = new FileReader();
-    reader.onload = function(e) {
-      document.getElementById('preview-img').src = e.target.result;
-    };
-    reader.readAsDataURL(file);
+  } catch (err) {
+    console.error('Save error:', err);
+    errorDiv.style.display = 'flex';
+    errorText.textContent  = 'Error al guardar: ' + (err.message || 'desconocido');
+    btn.disabled = false;
+    btn.innerHTML = '<span class="material-symbols-outlined text-base">save</span><span id="btn-save-text">' + (formId ? 'Actualizar' : 'Guardar') + '</span>';
   }
-
-  // Sube el archivo a la API de C# (StorageEndpoints)
-  async function uploadImageFile() {
-    var file = fileInput.files[0];
-    if (!file) return null;
-
-    document.getElementById('upload-status').textContent = 'Subiendo...';
-
-    var fd = new FormData();
-    fd.append('file', file);
-    fd.append('proveedor_id', proveedorId);
-
-    try {
-      var res = await fetch(API_URL + '/api/storage/upload-imagen', { method: 'POST', body: fd });
-      var data = await res.json();
-      if (data.url) {
-        document.getElementById('upload-status').textContent = '✓ Subida exitosa';
-        return data.url;
-      } else {
-        document.getElementById('upload-status').textContent = '✗ Error: ' + (data.error || 'desconocido');
-        return null;
-      }
-    } catch (err) {
-      document.getElementById('upload-status').textContent = '✗ Error de red';
-      return null;
-    }
-  }
-
-  // ---- Form Submit (Add / Edit) ----
-  document.getElementById('product-form').addEventListener('submit', async function(e) {
-    e.preventDefault();
-    var errorDiv = document.getElementById('form-error');
-    var errorText = document.getElementById('form-error-text');
-    var btn = document.getElementById('btn-save');
-
-    var formId = document.getElementById('form-id').value;
-    var name = document.getElementById('form-name').value.trim();
-    var category = document.getElementById('form-category').value.trim();
-    var price = parseFloat(document.getElementById('form-price').value);
-    var stock = parseInt(document.getElementById('form-moq').value) || 0;
-    var materials = document.getElementById('form-materials').value.trim();
-    var description = document.getElementById('form-description').value.trim();
-    var urlInput = document.getElementById('form-image');
-    var imageUrl = urlInput ? urlInput.value.trim() : '';
-
-    if (!name || !category || isNaN(price)) {
-      errorDiv.style.display = 'flex';
-      errorText.textContent = 'Completa todos los campos obligatorios (nombre, categoría, precio).';
-      return;
-    }
-
-    btn.disabled = true;
-    btn.innerHTML = '<span class="material-symbols-outlined text-base" style="animation:spin 1s linear infinite">progress_activity</span> Guardando...';
-    errorDiv.style.display = 'none';
-
-    // Si hay archivo seleccionado, subirlo primero a la API de C#
-    if (fileInput.files.length > 0) {
-      var uploadUrl = await uploadImageFile();
-      if (uploadUrl) imageUrl = uploadUrl;
-    }
-
-    // Usar el campo oculto si no hay imageUrl nueva (caso edición)
-    var finalImgField = document.getElementById('form-image-final');
-    if (!imageUrl && finalImgField && finalImgField.value) {
-      imageUrl = finalImgField.value;
-    }
-
-    var payload = {
-      nombre_articulo: name,
-      categoria: category,
-      precio_mayorista: price,
-      moq: stock,
-      materiales: materials || null,
-      descripcion: description || null,
-      imagen_url: imageUrl || null,
-      updated_at: new Date().toISOString(),
-    };
-
-    try {
-      var res;
-      if (formId) {
-        res = await fetch(API_URL + '/api/catalogo-productos/' + formId, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-      } else {
-        payload.id_mayorista = proveedorId;
-        payload.created_at = new Date().toISOString();
-        res = await fetch(API_URL + '/api/catalogo-productos', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-      }
-
-      if (!res.ok) {
-        var errData = await res.json().catch(() => ({}));
-        throw new Error(errData.message || 'Error ' + res.status);
-      }
-
-      window.location.reload();
-
-    } catch (err) {
-      console.error('Save error:', err);
-      errorDiv.style.display = 'flex';
-      errorText.textContent = 'Error al guardar: ' + (err.message || 'desconocido');
-      btn.disabled = false;
-      btn.innerHTML = '<span class="material-symbols-outlined text-base">save</span><span id="btn-save-text">Guardar</span>';
-    }
-  });
+});
 </script>
 
 <style>
   @keyframes spin {
     from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
+    to   { transform: rotate(360deg); }
   }
 </style>
