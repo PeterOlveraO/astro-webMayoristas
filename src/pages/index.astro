@@ -147,7 +147,12 @@ const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:5145';
       var userId = userData.user_id;
       var userEmail = userData.email;
       var rol = userData.rol;
-      var proveedorId = perfil.id_mayorista;
+      console.log('userData:', userData);
+console.log('perfil:', perfil);
+console.log('userId:', userId);
+console.log('rol:', rol);
+      var proveedorId = String(perfil?.id_mayorista ?? '').trim();
+console.log('proveedorId antes de cookie:', proveedorId);
       var proveedorNombre = perfil.nombre_empresa || '';
 
       if (!proveedorId) {
@@ -160,13 +165,19 @@ const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:5145';
         return;
       }
 
-      document.cookie = 'proveedor_id=' + proveedorId + '; path=/; max-age=604800; SameSite=Lax';
+      document.cookie = `id_mayorista=${encodeURIComponent(proveedorId)}; path=/; max-age=604800; SameSite=Lax`;
+document.cookie = `proveedor_id=${encodeURIComponent(proveedorId)}; path=/; max-age=604800; SameSite=Lax`;
       document.cookie = 'proveedor_nombre=' + encodeURIComponent(proveedorNombre) + '; path=/; max-age=604800; SameSite=Lax';
       document.cookie = 'proveedor_email=' + encodeURIComponent(userEmail) + '; path=/; max-age=604800; SameSite=Lax';
       document.cookie = 'proveedor_rol=' + rol + '; path=/; max-age=604800; SameSite=Lax';
       document.cookie = 'access_token=' + userData.access_token + '; path=/; max-age=604800; SameSite=Lax';
 
-      window.location.href = '/dashboard';
+      console.log('Cookie id_mayorista guardada:', getCookie('id_mayorista'));
+console.log('Cookie proveedor_id guardada:', getCookie('proveedor_id'));
+console.log('Cookie access_token guardada:', getCookie('access_token'));
+setTimeout(() => {
+  window.location.href = '/dashboard';
+}, 150);
 
     } catch (err) {
       console.error('Login error:', err);

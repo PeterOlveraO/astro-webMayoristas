@@ -8,10 +8,18 @@ async function safeFetch(url: string) {
   try {
     const res = await fetch(url);
     const text = await res.text();
+
+    if (!res.ok) {
+      console.log(`HTTP ${res.status} en ${url}`);
+      console.log(text);
+      return { success: false, data: null, pagination: null };
+    }
+
     if (!text || text.trim() === '') {
       console.log(`Respuesta vacía: ${url}`);
       return { success: false, data: null, pagination: null };
     }
+
     return JSON.parse(text);
   } catch (e) {
     console.log(`Error en fetch ${url}:`, e);
@@ -20,9 +28,13 @@ async function safeFetch(url: string) {
 }
 
 // Auth guard
-const proveedorId = Astro.cookies.get('proveedor_id')?.value;
-if (!proveedorId) return Astro.redirect('/');
+const proveedorId =
+  Astro.cookies.get('id_mayorista')?.value ??
+  Astro.cookies.get('proveedor_id')?.value;
 
+if (!proveedorId || proveedorId === 'undefined' || proveedorId === 'null') {
+  return Astro.redirect('/');
+}
 // Fetch proveedor
 const proveedorData = await safeFetch(`${API_URL}/api/mayoristas/${proveedorId}`);
 if (!proveedorData.data) return Astro.redirect('/');
