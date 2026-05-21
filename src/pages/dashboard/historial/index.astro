@@ -3,11 +3,16 @@ import DashboardLayout from '../../../layouts/DashboardLayout.astro';
 
 const API_URL = import.meta.env.PUBLIC_API_URL;
 
-// Auth guard
-const proveedorId = Astro.cookies.get('proveedor_id')?.value;
-if (!proveedorId) return Astro.redirect('/');
+// 1. Auth guard estandarizado y seguro
+const proveedorId = 
+  Astro.cookies.get('id_mayorista')?.value ?? 
+  Astro.cookies.get('proveedor_id')?.value;
 
-// Helper fetch seguro (igual que en catalogo)
+if (!proveedorId || proveedorId === 'undefined' || proveedorId === 'null') {
+  return Astro.redirect('/login'); // Redirigimos al login
+}
+
+// Helper fetch seguro
 async function safeFetch(url: string) {
   try {
     const res  = await fetch(url);
@@ -19,11 +24,10 @@ async function safeFetch(url: string) {
   }
 }
 
-// Traer todas las solicitudes respondidas de este mayorista
+// 2. Fetch seguro garantizado porque proveedorId ya es un Guid válido
 const result = await safeFetch(
   `${API_URL}/api/solicitudes-mayorista?id_mayorista=${proveedorId}&estado=aceptada,rechazada&pageSize=100`
 );
-
 const historial: any[] = result.data ?? [];
 
 const totalAceptadas  = historial.filter((s: any) => s.estado === 'aceptada').length;

@@ -21,8 +21,12 @@ async function safeFetch(url: string) {
 }
 
 // Auth guard
-const proveedorId = Astro.cookies.get('proveedor_id')?.value;
-if (!proveedorId) return Astro.redirect('/');
+const proveedorId =
+  Astro.cookies.get('id_mayorista')?.value ??
+  Astro.cookies.get('proveedor_id')?.value;
+if (!proveedorId || proveedorId === 'undefined' || proveedorId === 'null') {
+  return Astro.redirect('/login');
+}
 
 // Fetch productos del mayorista
 const productosData = await safeFetch(`${API_URL}/api/catalogo-productos?id_mayorista=${proveedorId}&pageSize=100`);
@@ -42,6 +46,7 @@ const categoryIcons: Record<string, string> = {
 ---
 
 <DashboardLayout title="Mi Catálogo" activeNav="catalogo">
+  <input type="hidden" id="__proveedor_id" value={proveedorId} />
   <!-- Header -->
   <header class="mb-8">
     <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
@@ -325,14 +330,14 @@ const categoryIcons: Record<string, string> = {
 <div id="app-config" data-api-url={API_URL} style="display:none;"></div>
 <script is:inline>
 var API_URL = document.getElementById('app-config').dataset.apiUrl;
+  
+  // ¡AQUÍ ESTÁ LA MAGIA! Leemos el ID directo del input oculto en lugar de usar "Astro"
+  var proveedorId = document.getElementById('__proveedor_id').value;
 
-function getCookie(name) {
-  var m = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
-  return m ? decodeURIComponent(m[2]) : '';
-}
-
-var proveedorId = getCookie('proveedor_id');
-
+  // Redirección de seguridad en el lado del cliente
+  if (!proveedorId || proveedorId === 'undefined' || proveedorId === 'null') {
+    window.location.href = '/login'; 
+  }
 // ---- Tab switching helper (sin onclick inline para evitar conflictos) ----
 function activateTab(tabId) {
   var isUpload = tabId === 'upload';
@@ -563,6 +568,7 @@ document.getElementById('product-form').addEventListener('submit', async functio
   }
   if (!imageUrl) imageUrl = document.getElementById('form-image-final').value.trim();
 
+  console.log("🔍 proveedorId al enviar:", proveedorId);
   // PAYLOAD COMPLETO: Requerido para PUT (reemplazo total)
   var payload = {
     id_mayorista:     proveedorId, // <-- CRÍTICO: Previene que el backend lo borre al hacer PUT

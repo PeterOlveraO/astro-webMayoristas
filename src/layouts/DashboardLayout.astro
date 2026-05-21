@@ -1,49 +1,50 @@
 ---
-import '../styles/global.css';
-import Navbar from '../components/sections/Navbar.astro';
-import Sidebar from '../components/sections/Sidebar.astro';
-import MobileNav from '../components/sections/MobileNav.astro';
+import "../styles/global.css";
+import Navbar from "../components/sections/Navbar.astro";
+import Sidebar from "../components/sections/Sidebar.astro";
+import MobileNav from "../components/sections/MobileNav.astro";
 
 interface Props {
-  title: string;
-  activeNav?: string;
+    title: string;
+    activeNav?: string;
 }
-const { title, activeNav = 'dashboard' } = Astro.props;
+const { title, activeNav = "dashboard" } = Astro.props;
 ---
-<!DOCTYPE html>
+
+<!doctype html>
 <html lang="es">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Portal de Proveedores — DownLabs" />
-    <title>{title} · DownLabs Proveedores</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Inter:wght@400;500;600;700&display=swap"
-      rel="stylesheet"
-    />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
-      rel="stylesheet"
-    />
-  </head>
-  <body class="bg-surface text-on-surface">
-    <!-- Desktop Sidebar -->
-    <div class="hidden lg:block">
-      <Sidebar activeNav={activeNav} />
-    </div>
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="description" content="Portal de Proveedores — DownLabs" />
+        <title>{title} · DownLabs Proveedores</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Inter:wght@400;500;600;700&display=swap"
+            rel="stylesheet"
+        />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+            rel="stylesheet"
+        />
+    </head>
+    <body class="bg-surface text-on-surface">
+        <!-- Desktop Sidebar -->
+        <div class="hidden lg:block">
+            <Sidebar activeNav={activeNav} />
+        </div>
 
-    <!-- Mobile Bottom Nav -->
-    <div class="lg:hidden">
-      <MobileNav activeNav={activeNav} />
-    </div>
+        <!-- Mobile Bottom Nav -->
+        <div class="lg:hidden">
+            <MobileNav activeNav={activeNav} />
+        </div>
 
-    <div class="lg:ml-72 flex flex-col min-h-screen">
-      <Navbar />
-      <main class="flex-1 p-4 sm:p-6 lg:p-10 pb-24 lg:pb-10">
-        <slot />
-      </main>
-    </div>
-  </body>
+        <div class="lg:ml-72 flex flex-col min-h-screen">
+            <Navbar />
+            <main class="flex-1 p-4 sm:p-6 lg:p-10 pb-24 lg:pb-10">
+                <slot />
+            </main>
+        </div>
+    </body>
 </html>

@@ -3,13 +3,18 @@ import DashboardLayout from '../../../layouts/DashboardLayout.astro';
 
 const API_URL = import.meta.env.PUBLIC_API_URL;
 
-// Auth guard
-const proveedorId = Astro.cookies.get('proveedor_id')?.value;
-if (!proveedorId) return Astro.redirect('/');
+// Auth guard blindado
+const proveedorId = 
+  Astro.cookies.get('id_mayorista')?.value ?? 
+  Astro.cookies.get('proveedor_id')?.value;
+
+if (!proveedorId || proveedorId === 'undefined' || proveedorId === 'null') {
+  return Astro.redirect('/');
+}
 
 async function safeFetch(url: string) {
   try {
-    const res  = await fetch(url);
+    const res = await fetch(url);
     const text = await res.text();
     if (!text || text.trim() === '') return { success: false, data: null };
     return JSON.parse(text);
@@ -18,11 +23,10 @@ async function safeFetch(url: string) {
   }
 }
 
-// Solo solicitudes pendientes para que el mayorista las responda
+// Fetch con el ID ya validado
 const result = await safeFetch(
   `${API_URL}/api/solicitudes-mayorista?id_mayorista=${proveedorId}&estado=pendiente&pageSize=100`
 );
-
 const solicitudes: any[] = result.data ?? [];
 ---
 
@@ -199,79 +203,78 @@ const solicitudes: any[] = result.data ?? [];
 
 <div id="app-config" data-api-url={API_URL} style="display:none;"></div>
 
+<input type="hidden" id="__proveedor_id" value={proveedorId} />
+<div id="app-config" data-api-url={API_URL} style="display:none;"></div>
+
 <script is:inline>
-var API_URL = document.getElementById('app-config').dataset.apiUrl;
+  var API_URL = document.getElementById('app-config').dataset.apiUrl;
+  var proveedorId = document.getElementById('__proveedor_id').value;
 
-document.querySelectorAll('.respuesta-form').forEach(function(form) {
-  form.addEventListener('submit', async function(e) {
-    e.preventDefault();
+  document.querySelectorAll('.respuesta-form').forEach(function(form) {
+    form.addEventListener('submit', async function(e) {
+      e.preventDefault();
 
-    // Detectar qué botón se presionó
-    var accion = e.submitter?.value || 'aceptada';
-    var solId  = form.dataset.id;
+      var accion = e.submitter?.value || 'aceptada';
+      var solId = form.dataset.id;
+      var precio = parseFloat(form.querySelector('[name="precio"]').value);
+      var tiempoEntrega = parseInt(form.querySelector('[name="tiempo_entrega"]').value) || null;
+      var notas = form.querySelector('[name="notas"]').value.trim() || null;
 
-    var precio         = parseFloat(form.querySelector('[name="precio"]').value);
-    var tiempoEntrega  = parseInt(form.querySelector('[name="tiempo_entrega"]').value) || null;
-    var notas          = form.querySelector('[name="notas"]').value.trim() || null;
+      var errorDiv = form.querySelector('.form-error');
+      var errorText = form.querySelector('.form-error-text');
 
-    var errorDiv  = form.querySelector('.form-error');
-    var errorText = form.querySelector('.form-error-text');
-
-    if (isNaN(precio) || precio <= 0) {
-      errorDiv.classList.remove('hidden');
-      errorText.textContent = 'El precio final es obligatorio.';
-      return;
-    }
-
-    errorDiv.classList.add('hidden');
-
-    // Deshabilitar botones
-    var btns = form.querySelectorAll('button[type="submit"]');
-    btns.forEach(function(b) { b.disabled = true; });
-
-    try {
-      var res = await fetch(API_URL + '/api/solicitudes-mayorista/' + solId, {
-        method:  'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          estado:              accion,
-          costo_envio:    precio,
-          tiempo_entrega_dias: tiempoEntrega,
-          notas_mayorista:     notas,
-          respondido_at:       new Date().toISOString()
-        })
-      });
-
-      if (!res.ok) {
-        var err = await res.json().catch(function() { return {}; });
-        throw new Error(err.message || 'Error ' + res.status);
+      if (isNaN(precio) || precio <= 0) {
+        errorDiv.classList.remove('hidden');
+        errorText.textContent = 'El precio final es obligatorio.';
+        return;
       }
 
-      // Quitar la card del DOM con animación
-      var card = form.closest('[data-id="' + solId + '"]');
-      if (card) {
-        card.style.transition = 'opacity 0.3s, transform 0.3s';
-        card.style.opacity = '0';
-        card.style.transform = 'scale(0.97)';
-        setTimeout(function() { card.remove(); }, 320);
-      }
+      errorDiv.classList.add('hidden');
+      var btns = form.querySelectorAll('button[type="submit"]');
+      btns.forEach(function(b) { b.disabled = true; });
 
-      // Actualizar el contador del header
-      var total = document.querySelectorAll('#solicitudes-lista [data-id]').length - 1;
-      var counter = document.querySelector('header p.text-on-surface-variant');
-      if (counter) {
-        counter.textContent = total + ' solicitud' + (total !== 1 ? 'es' : '') + ' esperando tu respuesta';
-      }
+      try {
+        var res = await fetch(API_URL + '/api/solicitudes-mayorista/' + solId, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id_mayorista: proveedorId, // Mandamos el ID real validado
+            estado: accion,
+            costo_envio: precio,
+            tiempo_entrega_dias: tiempoEntrega,
+            notas_mayorista: notas,
+            respondido_at: new Date().toISOString()
+          })
+        });
 
-    } catch (err) {
-      errorDiv.classList.remove('hidden');
-      errorText.textContent = 'Error al enviar: ' + (err.message || 'desconocido');
-      btns.forEach(function(b) { b.disabled = false; });
-    }
+        if (!res.ok) {
+          var err = await res.json().catch(function() { return {}; });
+          throw new Error(err.message || 'Error ' + res.status);
+        }
+
+        // Animación de salida de la card
+        var card = form.closest('[data-id="' + solId + '"]');
+        if (card) {
+          card.style.transition = 'opacity 0.3s, transform 0.3s';
+          card.style.opacity = '0';
+          card.style.transform = 'scale(0.97)';
+          setTimeout(function() { card.remove(); }, 320);
+        }
+
+        var total = document.querySelectorAll('#solicitudes-lista [data-id]').length - 1;
+        var counter = document.querySelector('header p.text-on-surface-variant');
+        if (counter) {
+          counter.textContent = total + ' solicitud' + (total !== 1 ? 'es' : '') + ' esperando tu respuesta';
+        }
+
+      } catch (err) {
+        errorDiv.classList.remove('hidden');
+        errorText.textContent = 'Error al enviar: ' + (err.message || 'desconocido');
+        btns.forEach(function(b) { b.disabled = false; });
+      }
+    });
   });
-});
 </script>
-
 <style>
   @keyframes spin {
     from { transform: rotate(0deg); }
